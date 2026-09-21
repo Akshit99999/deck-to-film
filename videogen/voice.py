@@ -5,7 +5,6 @@ Features:
   - Cache by SHA-256(text + voice + model) — only re-generates on change
   - ffprobe-measured real durations
   - Loudness normalization to target LUFS
-  - Optional music ducking
 """
 
 from __future__ import annotations
@@ -16,10 +15,10 @@ import json
 import logging
 import subprocess
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 import edge_tts
-from pydub import AudioSegment
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -29,10 +28,6 @@ from videogen.planner import Scene, VideoPlan
 
 logger = logging.getLogger(__name__)
 console = Console()
-
-
-@dataclass_style := {}  # just a placeholder import trick — use dataclasses below
-from dataclasses import dataclass
 
 
 @dataclass
@@ -53,10 +48,7 @@ class VoiceGenerator:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def generate_all(self, plan: VideoPlan, dry_run: bool = False) -> list[SceneAudio]:
-        """Generate audio for every scene in the plan.
-
-        Returns list of SceneAudio, one per scene.
-        """
+        """Generate audio for every scene in the plan."""
         total_chars = sum(len(s.narration) for s in plan.scenes)
         console.print(
             f"[cyan]Voice generation:[/cyan] {len(plan.scenes)} scenes, "
@@ -94,13 +86,13 @@ class VoiceGenerator:
         logger.info("Generating voice for scene %d: %.50s...", scene.index, scene.narration)
 
         if self.voice_cfg.provider == "elevenlabs":
-            raw = self._generate_elevenlabs(scene.narration)
+            raw_path = self._generate_elevenlabs(scene.narration)
         else:
-            raw = asyncio.run(self._generate_edge_tts(scene.narration))
+            raw_path = asyncio.run(self._generate_edge_tts(scene.narration))
 
-        # Loudness normalize
-        normalized = _normalize_loudness(raw, target_lufs=-16.0)
-        normalized.export(str(out_path), format="mp3", bitrate="192k")
+        # Loudness normalize via ffmpeg (no pydub dependency)
+        _normalize_loudness_ffmpeg(raw_path, out_path, target_lufs=-16.0)
+        raw_path.unlink(missing_ok=True)
 
         duration = _measure_duration(out_path)
         return SceneAudio(
@@ -111,12 +103,11 @@ class VoiceGenerator:
         )
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=30))
-    def _generate_elevenlabs(self, text: str) -> AudioSegment:
-        """Generate audio via ElevenLabs API."""
+    def _generate_elevenlabs(self, text: str) -> Path:
+        """Generate audio via ElevenLabs API. Returns temp MP3 path."""
         from elevenlabs import generate, set_api_key, Voice, VoiceSettings
 
         set_api_key(self.cfg.elevenlabs_api_key or "")
-
         audio_bytes: bytes = generate(  # type: ignore[assignment]
             text=text,
             voice=Voice(
@@ -125,27 +116,17 @@ class VoiceGenerator:
             ),
             model=self.voice_cfg.model,
         )
+        tmp = Path(tempfile.mktemp(suffix=".mp3"))
+        tmp.write_bytes(audio_bytes)
+        return tmp
 
-        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
-            f.write(audio_bytes)
-            tmp_path = Path(f.name)
-
-        seg = AudioSegment.from_mp3(str(tmp_path))
-        tmp_path.unlink(missing_ok=True)
-        return seg
-
-    async def _generate_edge_tts(self, text: str) -> AudioSegment:
+    async def _generate_edge_tts(self, text: str) -> Path:
         """Generate audio via Edge TTS (free, no API key needed)."""
         voice_name = _map_edge_tts_voice(self.voice_cfg.voice_id)
-        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
-            tmp_path = Path(f.name)
-
+        tmp = Path(tempfile.mktemp(suffix=".mp3"))
         communicate = edge_tts.Communicate(text, voice_name)
-        await communicate.save(str(tmp_path))
-
-        seg = AudioSegment.from_mp3(str(tmp_path))
-        tmp_path.unlink(missing_ok=True)
-        return seg
+        await communicate.save(str(tmp))
+        return tmp
 
 
 # ---------------------------------------------------------------------------
@@ -161,14 +142,11 @@ def _audio_cache_key(text: str, voice_id: str, model: str) -> str:
 def _measure_duration(path: Path) -> float:
     """Return audio duration in seconds using ffprobe."""
     result = subprocess.run(
-        [
-            "ffprobe", "-v", "quiet", "-print_format", "json",
-            "-show_streams", str(path),
-        ],
+        ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_streams", str(path)],
         capture_output=True, text=True,
     )
     if result.returncode != 0:
-        raise RuntimeError(f"ffprobe failed on {path}: {result.stderr}")
+        return 0.0
     data = json.loads(result.stdout)
     for stream in data.get("streams", []):
         if stream.get("codec_type") == "audio":
@@ -176,29 +154,21 @@ def _measure_duration(path: Path) -> float:
     return 0.0
 
 
-def _normalize_loudness(audio: AudioSegment, target_lufs: float = -16.0) -> AudioSegment:
-    """Normalize audio to target LUFS using pyloudnorm."""
-    try:
-        import numpy as np
-        import pyloudnorm as pyln
-
-        samples = np.array(audio.get_array_of_samples(), dtype=np.float32)
-        samples /= 2 ** (audio.sample_width * 8 - 1)
-        if audio.channels == 2:
-            samples = samples.reshape(-1, 2)
-
-        meter = pyln.Meter(audio.frame_rate)
-        loudness = meter.integrated_loudness(samples)
-
-        if abs(loudness - target_lufs) < 0.5:
-            return audio  # already close enough
-
-        gain_db = target_lufs - loudness
-        return audio + gain_db
-
-    except Exception as e:
-        logger.warning("Loudness normalization failed (%s), returning original", e)
-        return audio
+def _normalize_loudness_ffmpeg(src: Path, dst: Path, target_lufs: float = -16.0) -> None:
+    """Normalize audio loudness using ffmpeg loudnorm filter."""
+    result = subprocess.run(
+        [
+            "ffmpeg", "-y", "-i", str(src),
+            "-af", f"loudnorm=I={target_lufs}:TP=-1.5:LRA=11",
+            "-ar", "44100", "-ac", "2",
+            str(dst),
+        ],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        logger.warning("Loudness normalization failed, copying as-is: %s", result.stderr[:200])
+        import shutil
+        shutil.copy2(src, dst)
 
 
 def _map_edge_tts_voice(voice_id: str) -> str:

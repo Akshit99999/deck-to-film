@@ -15,7 +15,6 @@ from pathlib import Path
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from videogen.captions import SceneAudio  # reuse type
 from videogen.config import RenderConfig, Settings
 from videogen.planner import VideoPlan
 from videogen.voice import SceneAudio
