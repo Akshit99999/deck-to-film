@@ -89,18 +89,15 @@ class ParsedDeck:
 
 def _extract_table(table_shape: object) -> SlideTable:  # type: ignore[type-arg]
     """Extract headers and rows from a pptx table shape."""
-    from pptx.shapes.table import Table  # type: ignore[import-untyped]
-
-    tbl: Table = table_shape.table  # type: ignore[attr-defined]
+    tbl = table_shape.table  # type: ignore[attr-defined]
     rows: list[list[str]] = []
-    for i, row in enumerate(tbl.rows):
+    for row in tbl.rows:
         cells = [cell.text.strip() for cell in row.cells]
         rows.append(cells)
 
     headers: list[str] = []
     data_rows = rows
     if rows:
-        # Treat first row as header if it looks like one (short uppercase or bold)
         headers = rows[0]
         data_rows = rows[1:]
 
@@ -130,12 +127,16 @@ def parse_pptx(path: Path) -> ParsedDeck:
         for shape in slide.shapes:
             # Title placeholder
             if shape.has_text_frame:
-                if hasattr(shape, "placeholder_format") and shape.placeholder_format:
-                    ph_type = shape.placeholder_format.type
-                    # 1 = TITLE, 13 = CENTER_TITLE, 15 = SUBTITLE
-                    if ph_type in (1, 13):
-                        title = shape.text_frame.text.strip()
-                        continue
+                ph_type = None
+                try:
+                    if hasattr(shape, "placeholder_format") and shape.placeholder_format is not None:
+                        ph_type = shape.placeholder_format.type
+                except ValueError:
+                    ph_type = None
+
+                if ph_type in (1, 13):
+                    title = shape.text_frame.text.strip()
+                    continue
 
                 # Body / other text
                 for para in shape.text_frame.paragraphs:
