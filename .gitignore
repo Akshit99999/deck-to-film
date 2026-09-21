@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# Secrets — never commit these
+.env
+.env.*
+*.pem
+*.key
+*_rsa
+*_ed25519
+
+# Build outputs
+out/
+build/
+
+# Node
+node_modules/
+remotion/node_modules/
+
+# Generated assets
+sample/deck/launchpad.pptx
+*.mp4
+*.webm
+*.mp3
+*.srt
+*.vtt
+
+# macOS
+.DS_Store

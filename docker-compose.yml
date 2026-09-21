@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  videogen:
+    build: .
+    image: videogen:latest
+    volumes:
+      # Mount your project workspace into /workspace
+      - ./workspace:/workspace
+    environment:
+      # Required — set in your shell or a .env file (never commit secrets)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}   # optional; falls back to Edge TTS
+    # Example: run the full pipeline
+    # docker compose run --rm videogen build --config /workspace/videogen.yaml
+    command: ["--help"]
+
+  # Optional: open Remotion Studio for visual preview
+  remotion-studio:
+    build: .
+    image: videogen:latest
+    working_dir: /app/remotion
+    entrypoint: ["npx", "remotion", "studio"]
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./workspace:/workspace
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
