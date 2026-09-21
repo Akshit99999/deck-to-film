@@ -1,0 +1,53 @@
+# videogen.yaml — copy this to videogen.yaml and fill in your values.
+# Secrets (ANTHROPIC_API_KEY, ELEVENLABS_API_KEY) come from environment variables only.
+
+input:
+  pptx: ./deck/my_product.pptx          # Path to your .pptx file
+  repo: https://github.com/you/your-app  # Git URL or local path
+  live_url:                              # Optional: use a running site instead of local build
+  logo: ./assets/logo.png               # Optional: brand logo for overlays
+  brand_colors:
+    - "#6366f1"                          # Primary accent
+    - "#818cf8"                          # Secondary
+  target_length_secs: 480               # 8 minutes
+  demo_credentials:                     # Optional: credentials to log in during demo
+    # username: demo@example.com
+    # password: demo1234
+  background_music: ./assets/music.mp3  # Optional: background music (ducked under voice)
+
+voice:
+  provider: auto        # auto | elevenlabs | edge_tts
+  voice_id: Rachel      # ElevenLabs voice name or Edge TTS voice
+  model: eleven_turbo_v2
+  speed: 1.0
+
+captions:
+  languages:
+    - en                # Primary (burned in)
+    # - hi              # Hindi — needs ANTHROPIC_API_KEY for translation
+    # - pa              # Punjabi
+  burn_in: true
+  word_highlight: true   # Highlight currently spoken word in accent color
+  clean_mode: false      # true = no word highlight, plain white text
+  max_chars_per_line: 42
+  font_size_px: 44
+  whisper_model: base    # tiny | base | small | medium — tradeoff: speed vs accuracy
+
+render:
+  width: 1920
+  height: 1080
+  fps: 30
+  concurrency: 4         # Remotion render concurrency
+  crf: 18                # H.264 quality (lower = better, larger file)
+  audio_target_lufs: -16.0
+  output_dir: out
+  build_dir: build
+
+demo:
+  max_flows: 5           # Maximum demo flows to record
+  mask_sensitive: true   # Blur emails, tokens, keys in demo footage
+
+llm:
+  model: claude-opus-4-5
+  max_tokens: 8192
+  temperature: 0.3

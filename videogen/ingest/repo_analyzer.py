@@ -352,6 +352,8 @@ def _find_routes(repo_path: Path, framework: str) -> list[str]:
     """Detect URL routes/pages from file structure."""
     routes: list[str] = []
 
+    _EXTS = (".tsx", ".jsx", ".ts", ".js", ".vue", ".svelte")
+
     # Next.js / Nuxt: pages directory
     for pages_dir in (
         repo_path / "pages",
@@ -360,15 +362,15 @@ def _find_routes(repo_path: Path, framework: str) -> list[str]:
         repo_path / "src" / "app",
     ):
         if pages_dir.exists():
-            for f in pages_dir.rglob("*.{tsx,jsx,ts,js,vue,svelte}"):
-                rel = f.relative_to(pages_dir)
-                route = "/" + str(rel).replace("\\", "/")
-                # Clean up
-                route = re.sub(r"\.(tsx|jsx|ts|js|vue|svelte)$", "", route)
-                route = re.sub(r"/index$", "", route)
-                route = re.sub(r"\[(.+?)\]", r":\1", route)  # [slug] → :slug
-                if route and route not in routes:
-                    routes.append(route)
+            for ext in _EXTS:
+                for f in pages_dir.rglob(f"*{ext}"):
+                    rel = f.relative_to(pages_dir)
+                    route = "/" + str(rel).replace("\\", "/")
+                    route = re.sub(r"\.(tsx|jsx|ts|js|vue|svelte)$", "", route)
+                    route = re.sub(r"/index$", "", route)
+                    route = re.sub(r"\[(.+?)\]", r":\1", route)
+                    if route and route not in routes:
+                        routes.append(route)
 
     # Django: look at urls.py
     if framework == "django":

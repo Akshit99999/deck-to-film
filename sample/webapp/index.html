@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Launchpad — Sample App</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #0f0f1a; color: #f0f0ff; min-height: 100vh; }
+    nav { padding: 20px 48px; border-bottom: 1px solid #2a2a3e; display: flex; justify-content: space-between; align-items: center; }
+    nav .logo { font-weight: 800; font-size: 24px; color: #6366f1; }
+    nav button { background: #6366f1; color: #fff; border: none; border-radius: 8px; padding: 10px 24px; font-weight: 600; cursor: pointer; font-size: 15px; }
+    .hero { padding: 80px 48px; max-width: 960px; margin: 0 auto; text-align: center; }
+    .hero h1 { font-size: 64px; font-weight: 900; line-height: 1.05; margin-bottom: 24px; }
+    .hero p { font-size: 22px; color: #8888aa; margin-bottom: 48px; }
+    .cta-row { display: flex; gap: 16px; justify-content: center; }
+    .btn-primary { background: #6366f1; color: #fff; border: none; border-radius: 12px; padding: 16px 40px; font-size: 18px; font-weight: 700; cursor: pointer; }
+    .btn-secondary { background: transparent; color: #f0f0ff; border: 2px solid #2a2a3e; border-radius: 12px; padding: 16px 40px; font-size: 18px; font-weight: 600; cursor: pointer; }
+    .features { padding: 80px 48px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; max-width: 960px; margin: 0 auto; }
+    .feature-card { background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 16px; padding: 32px; }
+    .feature-card h3 { font-size: 20px; font-weight: 700; margin-bottom: 12px; color: #6366f1; }
+    .feature-card p { color: #8888aa; line-height: 1.6; }
+    #status { position: fixed; bottom: 32px; right: 32px; background: #22c55e; color: #fff; border-radius: 12px; padding: 12px 24px; font-weight: 600; display: none; }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="logo">Launchpad</div>
+    <button id="signup-btn" onclick="showSignup()">Sign up free</button>
+  </nav>
+
+  <section class="hero">
+    <h1>Ship products<br>10× faster</h1>
+    <p>Launchpad gives your team the tools to go from idea to launched product in days, not months.</p>
+    <div class="cta-row">
+      <button class="btn-primary" id="get-started" onclick="handleGetStarted()">Get started free</button>
+      <button class="btn-secondary" onclick="scrollToFeatures()">See features</button>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <div class="feature-card">
+      <h3>Instant deploy</h3>
+      <p>Push code and your product is live in seconds. Zero config, zero downtime.</p>
+    </div>
+    <div class="feature-card">
+      <h3>Team collaboration</h3>
+      <p>Real-time collaboration across design, engineering, and product — in one place.</p>
+    </div>
+    <div class="feature-card">
+      <h3>Analytics built in</h3>
+      <p>Understand your users from day one with privacy-first, cookieless analytics.</p>
+    </div>
+  </section>
+
+  <div id="status">✓ You're in! Check your email.</div>
+
+  <script>
+    function showSignup() {
+      document.getElementById('status').style.display = 'block';
+      setTimeout(() => document.getElementById('status').style.display = 'none', 3000);
+    }
+    function handleGetStarted() {
+      document.getElementById('status').textContent = '🚀 Starting your free trial...';
+      document.getElementById('status').style.display = 'block';
+      setTimeout(() => document.getElementById('status').style.display = 'none', 3000);
+    }
+    function scrollToFeatures() {
+      document.getElementById('features').scrollIntoView({ behavior: 'smooth' });
+    }
+  </script>
+</body>
+</html>
