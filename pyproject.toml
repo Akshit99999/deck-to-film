@@ -1,0 +1,69 @@
+[build-system]
+requires = ["hatchling>=1.21.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "videogen"
+version = "0.1.0"
+description = "Turn a PPTX deck + website repo into a polished 8-minute narrated explainer video"
+requires-python = ">=3.11"
+dependencies = [
+    "click==8.1.7",
+    "pydantic==2.6.4",
+    "pydantic-settings==2.2.1",
+    "python-dotenv==1.0.1",
+    "python-pptx==0.6.23",
+    "anthropic==0.25.1",
+    "elevenlabs==1.1.2",
+    "edge-tts==6.1.10",
+    "faster-whisper==1.0.1",
+    "playwright==1.43.0",
+    "pillow==10.3.0",
+    "rich==13.7.1",
+    "typer==0.12.3",
+    "httpx==0.27.0",
+    "aiofiles==23.2.1",
+    "pydub==0.25.1",
+    "pyloudnorm==0.1.1",
+    "numpy==1.26.4",
+    "scipy==1.13.0",
+    "gitpython==3.1.43",
+    "jinja2==3.1.4",
+    "toml==0.10.2",
+    "PyYAML==6.0.1",
+    "jsonschema==4.22.0",
+    "psutil==5.9.8",
+    "tenacity==8.3.0",
+    "tqdm==4.66.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.2.0",
+    "pytest-asyncio==0.23.6",
+    "pytest-mock==3.14.0",
+    "mypy==1.10.0",
+    "ruff==0.4.4",
+    "types-PyYAML==6.0.12.20240311",
+    "types-toml==0.10.8.20240310",
+]
+
+[project.scripts]
+videogen = "videogen.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["videogen"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
