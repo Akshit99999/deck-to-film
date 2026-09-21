@@ -181,6 +181,19 @@ def parse_pptx(path: Path) -> ParsedDeck:
 # ---------------------------------------------------------------------------
 
 
+def _libreoffice_bin() -> str:
+    """Return the LibreOffice binary name, handling macOS app bundle."""
+    import shutil
+    if shutil.which("libreoffice"):
+        return "libreoffice"
+    if shutil.which("soffice"):
+        return "soffice"
+    mac_path = "/Applications/LibreOffice.app/Contents/MacOS/soffice"
+    if Path(mac_path).exists():
+        return mac_path
+    return "libreoffice"  # will fail with a clear message
+
+
 def render_slides_to_png(deck: ParsedDeck, output_dir: Path) -> list[Path]:
     """Convert PPTX slides to PNG images using LibreOffice + pdftoppm.
 
@@ -206,7 +219,7 @@ def render_slides_to_png(deck: ParsedDeck, output_dir: Path) -> list[Path]:
         pdf_dir.mkdir()
         _run(
             [
-                "libreoffice",
+                _libreoffice_bin(),
                 "--headless",
                 "--convert-to",
                 "pdf",

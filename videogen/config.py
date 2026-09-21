@@ -201,7 +201,20 @@ def _check_binaries(names: list[str]) -> list[str]:
     """Return names of binaries not found on PATH."""
     import shutil
 
-    return [n for n in names if shutil.which(n) is None]
+    missing = []
+    for n in names:
+        if n == "libreoffice":
+            # On macOS, LibreOffice ships as 'soffice'; also check full app path
+            if (
+                shutil.which("libreoffice") is None
+                and shutil.which("soffice") is None
+                and not Path("/Applications/LibreOffice.app/Contents/MacOS/soffice").exists()
+            ):
+                missing.append(n)
+        else:
+            if shutil.which(n) is None:
+                missing.append(n)
+    return missing
 
 
 # ---------------------------------------------------------------------------
