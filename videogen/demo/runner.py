@@ -103,12 +103,18 @@ def run_site(
     # Step 2: Build
     if analysis.build_command:
         console.print(f"[cyan]Building: {analysis.build_command}[/cyan]")
-        _run_checked(
-            analysis.build_command,
-            cwd=repo_path,
-            env=env,
-            description="production build",
-        )
+        try:
+            _run_checked(
+                analysis.build_command,
+                cwd=repo_path,
+                env=env,
+                description="production build",
+            )
+        except Exception as e:
+            logger.warning("Production build failed (%s). Falling back to dev server...", e)
+            console.print("[yellow]Production build failed; falling back to dev server.[/yellow]")
+            if "start" in analysis.start_command:
+                analysis.start_command = f"npm run dev -- -p {port}"
 
     # Step 3: Start
     console.print(f"[cyan]Starting: {analysis.start_command} on port {port}[/cyan]")

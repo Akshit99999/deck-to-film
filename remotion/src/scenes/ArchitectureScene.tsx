@@ -7,6 +7,8 @@ import React from "react";
 import { useCurrentFrame, useVideoConfig, Audio } from "remotion";
 import { spring, remap, easeOutCubic } from "../lib/easing";
 import { withAlpha } from "../lib/theme";
+import { resolveAsset } from "../lib/assets";
+import { CinematicBackdrop } from "../components/CinematicBackdrop";
 import type { SceneProps } from "./types";
 
 interface Node {
@@ -82,6 +84,7 @@ export const ArchitectureScene: React.FC<SceneProps> = ({
         overflow: "hidden",
       }}
     >
+      <CinematicBackdrop accent={theme.accent} secondary={theme.secondary} />
       <h2
         style={{
           fontFamily: theme.fontHeading,
@@ -183,7 +186,7 @@ export const ArchitectureScene: React.FC<SceneProps> = ({
         })}
       </svg>
 
-      {scene.audio_path && <Audio src={scene.audio_path} />}
+      {scene.audio_path && <Audio src={resolveAsset(scene.audio_path)} />}
     </div>
   );
 };

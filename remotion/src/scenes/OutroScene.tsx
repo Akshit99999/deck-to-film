@@ -6,6 +6,8 @@ import React from "react";
 import { useCurrentFrame, useVideoConfig, Audio } from "remotion";
 import { spring, remap, easeOutCubic } from "../lib/easing";
 import { withAlpha } from "../lib/theme";
+import { resolveAsset } from "../lib/assets";
+import { CinematicBackdrop } from "../components/CinematicBackdrop";
 import type { SceneProps } from "./types";
 
 export const OutroScene: React.FC<SceneProps> = ({
@@ -40,6 +42,7 @@ export const OutroScene: React.FC<SceneProps> = ({
         opacity: fadeOut,
       }}
     >
+      <CinematicBackdrop accent={theme.accent} secondary={theme.secondary} />
       {/* Burst rings */}
       {[1, 1.6, 2.2].map((scale, i) => (
         <div
@@ -117,7 +120,7 @@ export const OutroScene: React.FC<SceneProps> = ({
         </div>
       </div>
 
-      {scene.audio_path && <Audio src={scene.audio_path} />}
+      {scene.audio_path && <Audio src={resolveAsset(scene.audio_path)} />}
     </div>
   );
 };

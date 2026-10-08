@@ -6,6 +6,8 @@ import React from "react";
 import { useCurrentFrame, useVideoConfig, Audio } from "remotion";
 import { spring, remap, easeOutCubic } from "../lib/easing";
 import { withAlpha } from "../lib/theme";
+import { resolveAsset } from "../lib/assets";
+import { CinematicBackdrop } from "../components/CinematicBackdrop";
 import type { SceneProps } from "./types";
 
 export const StatScene: React.FC<SceneProps> = ({
@@ -49,6 +51,7 @@ export const StatScene: React.FC<SceneProps> = ({
         overflow: "hidden",
       }}
     >
+      <CinematicBackdrop accent={theme.accent} secondary={theme.secondary} />
       {/* Ring + stat */}
       <div style={{ position: "relative", width: 480, height: 480 }}>
         <svg
@@ -170,7 +173,7 @@ export const StatScene: React.FC<SceneProps> = ({
         </div>
       )}
 
-      {scene.audio_path && <Audio src={scene.audio_path} />}
+      {scene.audio_path && <Audio src={resolveAsset(scene.audio_path)} />}
     </div>
   );
 };

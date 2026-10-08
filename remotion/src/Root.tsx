@@ -11,8 +11,10 @@ import {
   Sequence,
   useCurrentFrame,
   useVideoConfig,
+  getInputProps,
 } from "remotion";
-import { buildTheme } from "./lib/theme";
+import { buildTheme, withAlpha } from "./lib/theme";
+import { easeInOutCubic, remap } from "./lib/easing";
 import { CaptionOverlay } from "./components/CaptionOverlay";
 import { TitleScene } from "./scenes/TitleScene";
 import { BulletsScene } from "./scenes/BulletsScene";
@@ -31,10 +33,12 @@ const SceneDispatch: React.FC<{
   scene: SceneData;
   theme: ReturnType<typeof buildTheme>;
   durationFrames: number;
+  timelineOffsetFrames: number;
   srtContent?: string;
   withCaptions: boolean;
-}> = ({ scene, theme, durationFrames, srtContent, withCaptions }) => {
+}> = ({ scene, theme, durationFrames, timelineOffsetFrames, srtContent, withCaptions }) => {
   const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
   const isDemoScene = scene.type === "live_demo";
 
   const Component = (() => {
@@ -50,8 +54,22 @@ const SceneDispatch: React.FC<{
     }
   })();
 
+  const entrance = easeInOutCubic(remap(frame, 0, Math.min(fps * 0.45, durationFrames * 0.12), 0, 1));
+  const exit = easeInOutCubic(remap(frame, Math.max(0, durationFrames - fps * 0.32), durationFrames, 0, 1));
+  const isWipe = scene.transition_in === "wipe";
+  const isPush = scene.transition_in === "camera_push";
+  const isDissolve = scene.transition_in === "dissolve";
+
   return (
-    <AbsoluteFill>
+    <AbsoluteFill
+      style={{
+        opacity: entrance * exit,
+        transform: isPush
+          ? `scale(${1.045 - entrance * 0.045})`
+          : `translateY(${(1 - entrance) * (isDissolve ? 12 : 24)}px) scale(${isDissolve ? 0.985 + entrance * 0.015 : 1})`,
+        clipPath: isWipe ? `inset(0 ${(1 - entrance) * 100}% 0 0)` : undefined,
+      }}
+    >
       <Component
         scene={scene}
         theme={theme}
@@ -61,10 +79,14 @@ const SceneDispatch: React.FC<{
         <CaptionOverlay
           srtContent={srtContent}
           accentColor={scene.accent_color || theme.accent}
+          frameOffset={timelineOffsetFrames}
           liftForDemo={isDemoScene}
           cleanMode={false}
           fontSize={44}
         />
+      )}
+      {frame < 4 && (
+        <div style={{ position: "absolute", inset: 0, background: withAlpha(scene.accent_color || theme.accent, (1 - frame / 4) * 0.12), pointerEvents: "none" }} />
       )}
     </AbsoluteFill>
   );
@@ -106,6 +128,7 @@ const VideoComposition: React.FC<VideoProps & { withCaptions: boolean }> = ({
               scene={scene}
               theme={theme}
               durationFrames={durationFrames}
+              timelineOffsetFrames={from}
               srtContent={srtContent}
               withCaptions={withCaptions}
             />
@@ -170,16 +193,29 @@ export const RemotionRoot: React.FC = () => {
   const width = 1920;
   const height = 1080;
 
-  // When rendered from CLI, props are injected; in Studio we use defaults.
-  const propsFromEnv = DEFAULT_PROPS;
-  const total = totalFrames(propsFromEnv.scenes, fps);
+  // getInputProps() returns the --props JSON when rendering from CLI;
+  // it returns {} in Studio (where we fall back to DEFAULT_PROPS).
+  const inputProps = getInputProps() as Partial<VideoProps>;
+  const scenes = (inputProps.scenes && inputProps.scenes.length > 0)
+    ? inputProps.scenes
+    : DEFAULT_PROPS.scenes;
+  const plan = inputProps.plan ?? DEFAULT_PROPS.plan;
+
+  const mergedProps: VideoProps = {
+    ...DEFAULT_PROPS,
+    ...inputProps,
+    plan,
+    scenes,
+  };
+
+  const total = Math.max(1, totalFrames(scenes, fps));
 
   return (
     <>
       <Composition
         id="VideoCaptioned"
         component={VideoComposition as any}
-        defaultProps={{ ...propsFromEnv, withCaptions: true }}
+        defaultProps={{ ...mergedProps, withCaptions: true }}
         durationInFrames={total}
         fps={fps}
         width={width}
@@ -188,7 +224,7 @@ export const RemotionRoot: React.FC = () => {
       <Composition
         id="VideoClean"
         component={VideoComposition as any}
-        defaultProps={{ ...propsFromEnv, withCaptions: false }}
+        defaultProps={{ ...mergedProps, withCaptions: false }}
         durationInFrames={total}
         fps={fps}
         width={width}

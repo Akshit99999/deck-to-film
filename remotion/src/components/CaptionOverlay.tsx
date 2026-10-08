@@ -25,6 +25,8 @@ interface SrtEntry {
 interface CaptionOverlayProps {
   srtContent: string;
   accentColor: string;
+  /** Global composition-frame offset when rendered inside a Sequence. */
+  frameOffset?: number;
   /** If true, show captions higher up (demo scene has bottom UI) */
   liftForDemo?: boolean;
   cleanMode?: boolean;
@@ -76,13 +78,14 @@ function parseSrtTime(s: string): number {
 export const CaptionOverlay: React.FC<CaptionOverlayProps> = ({
   srtContent,
   accentColor,
+  frameOffset = 0,
   liftForDemo = false,
   cleanMode = false,
   fontSize = 44,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const currentSecs = frame / fps;
+  const currentSecs = (frame + frameOffset) / fps;
 
   const entries = React.useMemo(() => parseSrt(srtContent), [srtContent]);
 
@@ -116,16 +119,11 @@ export const CaptionOverlay: React.FC<CaptionOverlayProps> = ({
     }
 
     const lineWords = line.split(/\s+/);
-    let charOffset = 0;
-    const lineStart = lineIdx === 0 ? 0 : lines[0].length + 1;
-
     return (
       <span key={lineIdx} style={{ display: "block" }}>
         {lineWords.map((word, wi) => {
-          // Find this word in the words array
-          const wordEntry = active.words.find(
-            (w) => w.word.replace(/[^a-zA-Z0-9]/g, "") === word.replace(/[^a-zA-Z0-9]/g, "")
-          );
+          const wordIndex = lines.slice(0, lineIdx).join(" ").split(/\s+/).filter(Boolean).length + wi;
+          const wordEntry = active.words[wordIndex];
           const isActive =
             wordEntry &&
             currentSecs >= wordEntry.start &&

@@ -39,5 +39,9 @@ sample/deck/launchpad.pptx
 *.srt
 *.vtt
 
+# Remotion runtime assets
+remotion/public/
+videogen.yaml
+
 # macOS
 .DS_Store

@@ -61,6 +61,7 @@ class RepoAnalysis:
     def to_dict(self) -> dict:  # type: ignore[return]
         return {
             "repo_url": self.repo_url,
+            "local_path": str(self.local_path),
             "framework": self.framework,
             "package_manager": self.package_manager,
             "language": self.language,
@@ -131,38 +132,57 @@ def analyze_repo(repo_path: Path, repo_url: str) -> RepoAnalysis:
         install_command="npm install",
     )
 
+    app_path = repo_path
+    if (
+        not (repo_path / "package.json").exists()
+        and not (repo_path / "pyproject.toml").exists()
+        and not (repo_path / "requirements.txt").exists()
+        and not (repo_path / "Cargo.toml").exists()
+    ):
+        for sub in ["frontend", "client", "web", "app", "ui", "src"]:
+            cand = repo_path / sub
+            if (
+                (cand / "package.json").exists()
+                or (cand / "requirements.txt").exists()
+                or (cand / "pyproject.toml").exists()
+            ):
+                app_path = cand
+                analysis.local_path = app_path
+                logger.info("Detected web app subfolder: %s", app_path)
+                break
+
     # Detect package manager
-    if (repo_path / "pnpm-lock.yaml").exists():
+    if (app_path / "pnpm-lock.yaml").exists():
         analysis.package_manager = "pnpm"
-    elif (repo_path / "yarn.lock").exists():
+    elif (app_path / "yarn.lock").exists():
         analysis.package_manager = "yarn"
-    elif (repo_path / "pyproject.toml").exists():
-        analysis.package_manager = "poetry" if (repo_path / "poetry.lock").exists() else "pip"
+    elif (app_path / "pyproject.toml").exists():
+        analysis.package_manager = "poetry" if (app_path / "poetry.lock").exists() else "pip"
         analysis.language = "Python"
-    elif (repo_path / "requirements.txt").exists():
+    elif (app_path / "requirements.txt").exists():
         analysis.package_manager = "pip"
         analysis.language = "Python"
-    elif (repo_path / "Cargo.toml").exists():
+    elif (app_path / "Cargo.toml").exists():
         analysis.package_manager = "cargo"
         analysis.language = "Rust"
 
     # Detect JS framework via package.json
-    pkg_json = repo_path / "package.json"
+    pkg_json = app_path / "package.json"
     if pkg_json.exists():
         _detect_js_framework(pkg_json, analysis)
 
     # Detect Python framework
     if analysis.language == "Python":
-        _detect_python_framework(repo_path, analysis)
+        _detect_python_framework(app_path, analysis)
 
     # Detect env vars needed
-    analysis.env_vars_needed = _find_env_var_names(repo_path)
+    analysis.env_vars_needed = _find_env_var_names(app_path)
 
     # Detect routes
-    analysis.routes = _find_routes(repo_path, analysis.framework)
+    analysis.routes = _find_routes(app_path, analysis.framework)
 
     # Infer auth
-    analysis.auth_required = _has_auth(repo_path)
+    analysis.auth_required = _has_auth(app_path)
 
     # Set install command
     analysis.install_command = {

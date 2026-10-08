@@ -10,6 +10,10 @@ input:
     - "#6366f1"                          # Primary accent
     - "#818cf8"                          # Secondary
   target_length_secs: 480               # 8 minutes
+  # Custom video directions:
+  prompt: "Focus on technical architecture and real-time live map tracking"  # Optional: custom instructions
+  video_type: explainer                 # explainer | investor_pitch | hackathon_demo | marketing_trailer | technical_walkthrough
+  tone: engaging                        # engaging | professional | exciting | cinematic | authoritative
   demo_credentials:                     # Optional: credentials to log in during demo
     # username: demo@example.com
     # password: demo1234

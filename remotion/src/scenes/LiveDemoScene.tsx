@@ -4,10 +4,12 @@
  */
 
 import React from "react";
-import { useCurrentFrame, useVideoConfig, Audio, Video, OffthreadVideo } from "remotion";
-import { remap, easeOutCubic, spring } from "../lib/easing";
+import { useCurrentFrame, useVideoConfig, Audio } from "remotion";
+import { remap, easeOutCubic } from "../lib/easing";
 import { withAlpha } from "../lib/theme";
+import { resolveAsset } from "../lib/assets";
 import { DeviceFrame } from "../components/DeviceFrame";
+import { CinematicBackdrop } from "../components/CinematicBackdrop";
 import type { SceneProps } from "./types";
 
 export const LiveDemoScene: React.FC<SceneProps> = ({
@@ -16,12 +18,11 @@ export const LiveDemoScene: React.FC<SceneProps> = ({
   durationFrames,
 }) => {
   const frame = useCurrentFrame();
-  const { fps, width, height } = useVideoConfig();
+  const { fps } = useVideoConfig();
 
   const introProgress = easeOutCubic(remap(frame, 0, fps * 0.6, 0, 1));
 
-  // Parse actions from demo video sidecar if available
-  const actions: any[] = [];
+  const actions = scene.demo_actions || [];
 
   const hasDemoVideo = Boolean(scene.demo_video_path);
 
@@ -30,10 +31,11 @@ export const LiveDemoScene: React.FC<SceneProps> = ({
       style={{
         position: "absolute",
         inset: 0,
-        background: `radial-gradient(ellipse at 50% 30%, ${withAlpha(theme.accent, 0.12)} 0%, #050508 60%)`,
+        background: theme.bg,
         overflow: "hidden",
       }}
     >
+      <CinematicBackdrop accent={theme.accent} secondary={theme.secondary} intensity={0.95} />
       {/* Intro label */}
       <div
         style={{
@@ -109,7 +111,7 @@ export const LiveDemoScene: React.FC<SceneProps> = ({
           }}
         >
           <DeviceFrame
-            videoSrc={scene.demo_video_path!}
+            videoSrc={resolveAsset(scene.demo_video_path!)}
             deviceType="laptop"
             actions={actions}
             accentColor={theme.accent}
@@ -120,24 +122,35 @@ export const LiveDemoScene: React.FC<SceneProps> = ({
         <FallbackSlides scene={scene} theme={theme} frame={frame} fps={fps} />
       )}
 
-      {scene.audio_path && <Audio src={scene.audio_path} />}
+      {scene.audio_path && <Audio src={resolveAsset(scene.audio_path)} />}
     </div>
   );
 };
 
-/** Shown when no demo video was captured — uses slide screenshots with zoom/pan. */
+/**
+ * A designed command-suite overview when an individual capture is unavailable.
+ * It is intentionally useful rather than a warning card: viewers can still see
+ * the complete product layout and how its operating surfaces fit together.
+ */
 const FallbackSlides: React.FC<{
   scene: any;
   theme: any;
   frame: number;
   fps: number;
 }> = ({ scene, theme, frame, fps }) => {
-  const t = remap(frame, 0, fps * 5, 0, 1);
-  const scale = 1 + easeOutCubic(t) * 0.08;
-  const translateX = easeOutCubic(t) * -40;
+  const t = easeOutCubic(remap(frame, 0, fps * 0.8, 0, 1));
 
-  const src = scene.assets[0];
-  if (!src) return null;
+  const src = resolveAsset(scene.assets[0]);
+  const modules = [
+    ["Dashboard", "Overview & telemetry"],
+    ["Live Cameras", "Multi-feed monitoring"],
+    ["Alerts & Intel", "Threats & evidence"],
+    ["Border Map", "GIS & sensor radar"],
+    ["Netra Nain", "3D intelligence"],
+    ["Operations Analytics", "Readiness & response"],
+    ["Guard Duty & Log", "Sentries & handover"],
+    ["Camera Settings", "Power & sensitivity"],
+  ];
 
   return (
     <div
@@ -146,40 +159,25 @@ const FallbackSlides: React.FC<{
         inset: 0,
         overflow: "hidden",
         display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        paddingTop: 160,
+        alignItems: "center", justifyContent: "center", padding: "150px 118px 80px",
       }}
     >
-      <div
-        style={{
-          transform: `scale(${scale}) translateX(${translateX}px)`,
-          transformOrigin: "center center",
-          width: "80%",
-          border: `2px solid ${withAlpha(theme.accent, 0.4)}`,
-          borderRadius: 12,
-          overflow: "hidden",
-          boxShadow: `0 32px 80px rgba(0,0,0,0.8), 0 0 40px ${withAlpha(theme.accent, 0.2)}`,
-        }}
-      >
-        <img src={src} style={{ width: "100%", display: "block" }} alt="demo" />
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          bottom: 48,
-          left: "50%",
-          transform: "translateX(-50%)",
-          background: withAlpha("#ef4444", 0.85),
-          color: "#fff",
-          borderRadius: 8,
-          padding: "8px 20px",
-          fontFamily: theme.fontBody,
-          fontSize: 18,
-          fontWeight: 600,
-        }}
-      >
-        ⚠ Live demo not available — showing static screenshots
+      <div style={{ display: "grid", gridTemplateColumns: "0.95fr 1.05fr", width: "100%", maxWidth: 1520, gap: 42, alignItems: "center", opacity: t, transform: `translateY(${(1 - t) * 24}px)` }}>
+        <div style={{ position: "relative", border: `1px solid ${withAlpha(theme.accent, 0.42)}`, borderRadius: 18, overflow: "hidden", background: "#0b0e16", boxShadow: `0 30px 72px rgba(0,0,0,.58), 0 0 42px ${withAlpha(theme.accent, 0.15)}` }}>
+          {src ? <img src={src} style={{ width: "100%", display: "block" }} alt="BorderLens platform" /> : <div style={{ aspectRatio: "16 / 10" }} />}
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(255,255,255,.13), transparent 28%, transparent)" }} />
+          <div style={{ position: "absolute", left: 18, bottom: 18, padding: "8px 12px", background: "rgba(5,8,13,.78)", border: `1px solid ${withAlpha(theme.accent, 0.45)}`, color: "#f5f7fb", font: "800 14px Inter, sans-serif", letterSpacing: ".08em", textTransform: "uppercase" }}>BorderLens command suite</div>
+        </div>
+        <div>
+          <div style={{ color: theme.accent, font: "800 16px Inter, sans-serif", letterSpacing: ".14em", textTransform: "uppercase", marginBottom: 14 }}>Full platform layout</div>
+          <h3 style={{ color: theme.text, fontFamily: theme.fontHeading, fontSize: 46, lineHeight: 1.05, letterSpacing: "-.035em", margin: "0 0 24px" }}>One operational picture, from signal to response.</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {modules.map(([name, description], index) => {
+              const item = easeOutCubic(remap(frame, fps * (0.22 + index * 0.06), fps * (0.65 + index * 0.06), 0, 1));
+              return <div key={name} style={{ padding: "13px 15px", borderRadius: 11, background: "rgba(255,255,255,.055)", border: `1px solid ${withAlpha("#ffffff", 0.1)}`, opacity: item, transform: `translateX(${(1 - item) * 16}px)` }}><div style={{ color: theme.text, font: "700 17px Inter, sans-serif" }}>{name}</div><div style={{ color: theme.textMuted, font: "500 13px Inter, sans-serif", marginTop: 4 }}>{description}</div></div>;
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );

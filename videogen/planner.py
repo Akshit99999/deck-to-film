@@ -14,7 +14,8 @@ import re
 from pathlib import Path
 from typing import Any, Literal
 
-import anthropic
+from google import genai
+from google.genai import types as genai_types
 from pydantic import BaseModel, Field, field_validator
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -43,17 +44,18 @@ class DemoStep(BaseModel):
     """A single step in the live demo recording script."""
 
     action: Literal["goto", "click", "type", "scroll", "hover", "wait", "press", "screenshot"]
-    target: str = Field(..., description="Accessible selector: role/text/label or CSS")
+    target: str | None = Field(default=None, description="Accessible selector: role/text/label or CSS")
     value: str | None = None
     narration_cue: str = Field(..., description="The narration sentence this step accompanies")
     wait_after_ms: int = 500
 
-    @field_validator("target")
+    @field_validator("target", mode="before")
     @classmethod
-    def target_not_empty(cls, v: str) -> str:
-        if not v.strip():
-            raise ValueError("target must not be empty")
-        return v
+    def coerce_target(cls, v: object) -> str:
+        # LLMs (e.g. Gemini) sometimes return null for target; coerce to empty string
+        if v is None:
+            return ""
+        return str(v)
 
 
 class DemoFlow(BaseModel):
@@ -135,6 +137,9 @@ STRICT RULES:
 5. Demo flows cover only features that EXIST in the repo code.
 6. Respond ONLY with a single JSON object matching the VideoPlan schema.
 7. Each bullet is ≤9 words. Heading is ≤8 words.
+8. Treat the repository routes as the source of truth for the product tour. Cover the dashboard plus every distinct, user-facing product area that is relevant to the story; do not reduce a multi-page application to one or two generic demos.
+9. Every non-demo scene must have a visual job: use supplied deck assets for claims, architecture for systems, and focused editorial cards only for concise comparisons. Avoid repeating the same four bullets over a long narration.
+10. Live-demo scenes need a real flow that lasts approximately as long as their narration. Include short holds after each page change so viewers can read the actual interface, and combine related routes into an overview tour when that improves coverage.
 """
 
 _USER_TEMPLATE = """
@@ -149,6 +154,11 @@ _USER_TEMPLATE = """
 - Voice: {voice_id}
 - Brand colors: {brand_colors}
 - Available demo credentials: {demo_creds}
+
+## User Directives & Video Style
+- Video Style: {video_type}
+- Narration Tone: {tone}
+- Custom User Directives: {custom_prompt}
 
 ## Required output format (JSON)
 Return a JSON object matching this schema:
@@ -202,9 +212,9 @@ Return a JSON object matching this schema:
 Narrative structure (in order):
 1. Title scene (~15s)
 2. Hook / Problem (~30s)
-3. Solution intro + slides (~60s)
-4. Key features - 2-3 bullet scenes (~120s total)
-5. LIVE DEMO scene(s) — 2-3 flows, ~120-180s total
+3. Solution intro + a live command-console overview (~60s)
+4. Key features - 2-3 visual scenes (~120s total)
+5. LIVE DEMO scene(s) — cover each main product surface, ~120-180s total
 6. How it works — architecture overview, visual only, no code (~45s)
 7. Impact / traction (only if evidence in deck, else skip)
 8. Roadmap (only if in deck)
@@ -236,7 +246,9 @@ class Planner:
     def __init__(self, cfg: Settings) -> None:
         self.cfg = cfg
         self.llm = LLMConfig() if cfg.llm is None else cfg.llm
-        self._client = anthropic.Anthropic(api_key=cfg.anthropic_api_key)
+        import os
+        gemini_key = os.environ.get("GEMINI_API_KEY", "")
+        self._client = genai.Client(api_key=gemini_key)
 
     def plan(
         self,
@@ -259,8 +271,12 @@ class Planner:
         output_dir.mkdir(parents=True, exist_ok=True)
         plan_path = output_dir / "plan.json"
 
-        # Cache key = hash of deck + repo analysis
-        cache_key = _hash_inputs(deck.full_text, json.dumps(analysis.to_dict()))
+        user_directives = (
+            f"prompt:{self.cfg.input.prompt}|style:{self.cfg.input.video_type}|tone:{self.cfg.input.tone}"
+            if self.cfg.input
+            else ""
+        )
+        cache_key = _hash_inputs(deck.full_text, json.dumps(analysis.to_dict()), user_directives)
         cache_meta_path = output_dir / "plan_meta.json"
 
         if plan_path.exists() and cache_meta_path.exists():
@@ -274,6 +290,15 @@ class Planner:
         demo_creds = (
             list(self.cfg.input.demo_credentials.keys()) if self.cfg.input else []
         )
+        custom_prompt = (
+            self.cfg.input.prompt if self.cfg.input and self.cfg.input.prompt else "None specified. Follow default narrative."
+        )
+        video_type = (
+            self.cfg.input.video_type if self.cfg.input and self.cfg.input.video_type else "explainer"
+        )
+        tone = (
+            self.cfg.input.tone if self.cfg.input and self.cfg.input.tone else "engaging"
+        )
 
         user_prompt = _USER_TEMPLATE.format(
             deck_text=deck.full_text[:12000],
@@ -283,6 +308,9 @@ class Planner:
             voice_id=self.cfg.voice.voice_id,
             brand_colors=", ".join(brand_colors),
             demo_creds=", ".join(demo_creds) if demo_creds else "none provided",
+            custom_prompt=custom_prompt,
+            video_type=video_type,
+            tone=tone,
         )
 
         # Cost estimate
@@ -308,16 +336,20 @@ class Planner:
 
         # Critic pass
         console.print("[cyan]Running critic pass (pass 2/2)...[/cyan]")
-        critic_prompt = (
-            f"ORIGINAL SOURCES:\n{deck.full_text[:6000]}\n\n"
-            f"PLAN:\n{json.dumps(plan.model_dump(), indent=2)}"
-        )
-        raw_json2 = self._call_claude(
-            system=_CRITIC_SYSTEM,
-            user=critic_prompt,
-            max_tokens=self.llm.max_tokens,
-        )
-        plan = _parse_plan_json(raw_json2)
+        try:
+            critic_prompt = (
+                f"ORIGINAL SOURCES:\n{deck.full_text[:6000]}\n\n"
+                f"PLAN:\n{json.dumps(plan.model_dump(), indent=2)}"
+            )
+            raw_json2 = self._call_claude(
+                system=_CRITIC_SYSTEM,
+                user=critic_prompt,
+                max_tokens=self.llm.max_tokens,
+            )
+            plan = _parse_plan_json(raw_json2)
+        except Exception as err:
+            logger.warning("Critic pass failed or truncated (%s); keeping initial plan.", err)
+            console.print(f"[yellow]Critic pass failed ({err}); proceeding with pass 1 plan.[/yellow]")
 
         # Write plan
         plan_path.write_text(plan.model_dump_json(indent=2))
@@ -327,17 +359,35 @@ class Planner:
 
     @retry(
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=30),
+        wait=wait_exponential(multiplier=1, min=2, max=15),
     )
     def _call_claude(self, system: str, user: str, max_tokens: int) -> str:
-        """Call Claude API with retry and return raw response text."""
-        response = self._client.messages.create(
-            model=self.llm.model,
-            max_tokens=max_tokens,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-        )
-        return response.content[0].text
+        """Call Gemini API (native SDK) with automatic model fallback and retry."""
+        candidates = [self.llm.model, "gemini-3.5-flash", "gemini-2.5-flash"]
+        # deduplicate while preserving order
+        unique_models = list(dict.fromkeys(candidates))
+
+        last_err = None
+        for model_name in unique_models:
+            try:
+                logger.info("Calling Gemini model %s...", model_name)
+                response = self._client.models.generate_content(
+                    model=model_name,
+                    contents=user,
+                    config=genai_types.GenerateContentConfig(
+                        system_instruction=system,
+                        thinking_config=genai_types.ThinkingConfig(thinking_budget=0),
+                        max_output_tokens=max_tokens,
+                        temperature=self.llm.temperature,
+                    ),
+                )
+                if response.text:
+                    return response.text
+            except Exception as e:
+                logger.warning("Model %s failed: %s. Trying fallback...", model_name, e)
+                last_err = e
+
+        raise last_err or RuntimeError("All Gemini models failed")
 
 
 # ---------------------------------------------------------------------------

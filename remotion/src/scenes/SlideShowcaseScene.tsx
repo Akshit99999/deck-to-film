@@ -7,6 +7,8 @@ import React from "react";
 import { useCurrentFrame, useVideoConfig, Audio, Img } from "remotion";
 import { spring, remap, easeOutCubic } from "../lib/easing";
 import { withAlpha } from "../lib/theme";
+import { resolveAsset } from "../lib/assets";
+import { CinematicBackdrop } from "../components/CinematicBackdrop";
 import type { SceneProps } from "./types";
 
 export const SlideShowcaseScene: React.FC<SceneProps> = ({
@@ -27,15 +29,18 @@ export const SlideShowcaseScene: React.FC<SceneProps> = ({
       style={{
         position: "absolute",
         inset: 0,
-        background: `radial-gradient(ellipse at 30% 60%, ${withAlpha(theme.accent, 0.1)} 0%, ${theme.bg} 60%)`,
+        background: theme.bg,
         display: "flex",
         alignItems: "center",
         overflow: "hidden",
       }}
     >
+      <CinematicBackdrop accent={theme.accent} secondary={theme.secondary} />
       {/* Left: heading + bullets */}
       <div
         style={{
+          position: "relative",
+          zIndex: 1,
           width: "40%",
           padding: "0 0 0 100px",
           flexShrink: 0,
@@ -83,6 +88,7 @@ export const SlideShowcaseScene: React.FC<SceneProps> = ({
       {/* Right: floating slide panels */}
       <div
         style={{
+          zIndex: 1,
           flex: 1,
           position: "relative",
           height: "100%",
@@ -106,7 +112,7 @@ export const SlideShowcaseScene: React.FC<SceneProps> = ({
         )}
       </div>
 
-      {scene.audio_path && <Audio src={scene.audio_path} />}
+      {scene.audio_path && <Audio src={resolveAsset(scene.audio_path)} />}
     </div>
   );
 };
@@ -141,19 +147,19 @@ const SlidePanel: React.FC<{
         position: "absolute",
         left: pos.x,
         top: pos.y + floatY,
-        width: 560,
-        transform: `rotate(${pos.rot + floatRot}deg) scale(${progress * pos.z})`,
+        width: 600,
+        transform: `perspective(1300px) rotateY(${index === 1 ? -4 : index === 0 ? 8 : -7}deg) rotate(${pos.rot + floatRot}deg) scale(${progress * pos.z})`,
         transformOrigin: "center center",
         opacity: progress,
         filter: `drop-shadow(0 24px 48px rgba(0,0,0,0.7)) drop-shadow(0 0 20px ${accentColor}33)`,
-        border: `2px solid ${accentColor}44`,
-        borderRadius: 12,
+        border: `1px solid ${accentColor}66`,
+        borderRadius: 16,
         overflow: "hidden",
         background: "#0a0a0f",
       }}
     >
       <Img
-        src={src}
+        src={resolveAsset(src)}
         style={{ width: "100%", display: "block" }}
       />
     </div>

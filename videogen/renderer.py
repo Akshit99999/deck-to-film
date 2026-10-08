@@ -118,8 +118,24 @@ class Renderer:
                 10.0,
             )
             if scene.demo_flow and scene.demo_flow in demo_videos:
-                s["demo_video_path"] = str(demo_videos[scene.demo_flow])
+                demo_path = demo_videos[scene.demo_flow]
+                s["demo_video_path"] = str(demo_path)
+                # Use the capture sidecar to make intentional camera moves around
+                # real interactions, without runtime filesystem reads in Remotion.
+                sidecar = demo_path.with_suffix(".json")
+                if sidecar.exists():
+                    try:
+                        s["demo_actions"] = json.loads(sidecar.read_text()).get("actions", [])
+                    except (OSError, json.JSONDecodeError):
+                        logger.warning("Could not read demo actions sidecar: %s", sidecar)
             scenes_data.append(s)
+
+        srt_content = ""
+        if srt_path and srt_path.exists():
+            try:
+                srt_content = srt_path.read_text(encoding="utf-8")
+            except OSError:
+                logger.warning("Could not read caption file: %s", srt_path)
 
         return {
             "plan": {
@@ -129,6 +145,7 @@ class Renderer:
                 "font_heading": plan.font_heading,
                 "font_body": plan.font_body,
                 "has_responsive_mobile": plan.has_responsive_mobile,
+                "srt_content": srt_content,
             },
             "scenes": scenes_data,
             "srt_path": str(srt_path) if srt_path else "",
@@ -138,7 +155,7 @@ class Renderer:
         }
 
     def _ensure_remotion_deps(self) -> None:
-        """Install node_modules in the remotion directory if not present."""
+        """Install node_modules in the remotion directory if not present and prepare public assets."""
         nm = self.remotion_dir / "node_modules"
         if not nm.exists():
             console.print("[cyan]Installing Remotion dependencies...[/cyan]")
@@ -148,6 +165,29 @@ class Renderer:
                 check=True,
                 capture_output=True,
             )
+
+        public_dir = self.remotion_dir / "public"
+        public_dir.mkdir(parents=True, exist_ok=True)
+
+        import shutil
+        slides_dir = (self.remotion_dir.parent / "build" / "slides").resolve()
+        if slides_dir.exists():
+            (public_dir / "build" / "slides").mkdir(parents=True, exist_ok=True)
+            for p in slides_dir.glob("*.png"):
+                shutil.copy2(p, public_dir / p.name)
+                shutil.copy2(p, public_dir / "build" / "slides" / p.name)
+
+        voice_dir = (self.remotion_dir.parent / "out" / "voice").resolve()
+        if voice_dir.exists():
+            (public_dir / "out" / "voice").mkdir(parents=True, exist_ok=True)
+            for p in voice_dir.glob("*.mp3"):
+                shutil.copy2(p, public_dir / "out" / "voice" / p.name)
+
+        demo_dir = (self.remotion_dir.parent / "build" / "demo").resolve()
+        if demo_dir.exists():
+            (public_dir / "build" / "demo").mkdir(parents=True, exist_ok=True)
+            for p in demo_dir.glob("*.webm"):
+                shutil.copy2(p, public_dir / "build" / "demo" / p.name)
 
     def _run_remotion(
         self,
@@ -159,12 +199,13 @@ class Renderer:
         cmd = [
             "npx", "remotion", "render",
             composition,
-            str(output_path),
-            "--props", str(props_path),
+            str(output_path.resolve()),
+            "--props", str(props_path.resolve()),
             "--concurrency", str(self.render_cfg.concurrency),
+            "--gl=angle",
         ]
         if self.render_cfg.low_res_preview:
-            cmd += ["--scale", "0.667"]
+            cmd += ["--scale", "0.5"]
 
         logger.debug("Running: %s", " ".join(cmd))
         result = subprocess.run(

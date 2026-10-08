@@ -1,37 +1,22 @@
 /**
- * DeviceFrame — renders recorded demo footage inside a 3D browser or phone frame.
- *
- * Uses @remotion/three + Three.js for PBR materials, soft shadows, reflections.
- * Camera drifts gently during idle, settles flat-on during interactions.
+ * Content-first demo presentation. The recording is deliberately kept crisp
+ * and front-facing; depth comes from the chassis, lighting, and camera move,
+ * not by hiding the product inside a decorative 3D scene.
  */
 
-import React, { useRef } from "react";
+import React from "react";
 import { useCurrentFrame, useVideoConfig, Video } from "remotion";
-import { ThreeCanvas } from "@remotion/three";
-import * as THREE from "three";
-import { remap, easeInOutCubic } from "../lib/easing";
-
-interface ActionEvent {
-  timestamp_ms: number;
-  action: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  narration_cue: string;
-}
+import { easeInOutCubic, remap, spring } from "../lib/easing";
+import { withAlpha } from "../lib/theme";
+import type { DemoAction } from "../scenes/types";
 
 interface DeviceFrameProps {
   videoSrc: string;
   deviceType: "laptop" | "phone";
-  actions: ActionEvent[];
+  actions: DemoAction[];
   accentColor: string;
-  /** Duration of this scene in frames */
   durationFrames: number;
 }
-
-const LAPTOP_ASPECT = 16 / 10;
-const PHONE_ASPECT = 9 / 19.5;
 
 export const DeviceFrame: React.FC<DeviceFrameProps> = ({
   videoSrc,
@@ -43,240 +28,100 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
   const currentMs = (frame / fps) * 1000;
-
-  // Find the closest upcoming action for zoom target
+  const intro = spring(Math.min(frame / fps, 1.2), 145, 18);
   const activeAction = actions
-    .filter((a) => Math.abs(a.timestamp_ms - currentMs) < 2000)
+    .filter((action) => Math.abs(action.timestamp_ms - currentMs) < 900)
     .sort((a, b) => Math.abs(a.timestamp_ms - currentMs) - Math.abs(b.timestamp_ms - currentMs))[0];
-
-  // Camera drift: slow orbit during idle, settle on action
-  const idleT = (frame % (fps * 8)) / (fps * 8); // 8s orbit cycle
-  const isInteracting = activeAction && Math.abs(activeAction.timestamp_ms - currentMs) < 800;
-
-  const cameraX = isInteracting ? 0 : Math.sin(idleT * Math.PI * 2) * 0.15;
-  const cameraY = isInteracting ? 0 : Math.cos(idleT * Math.PI) * 0.05;
-  const cameraZ = isInteracting ? 3.5 : 3.8;
+  const actionFocus = activeAction
+    ? easeInOutCubic(remap(currentMs, activeAction.timestamp_ms - 450, activeAction.timestamp_ms + 250, 0, 1))
+    : 0;
+  const idle = Math.sin(frame / fps * 0.7);
+  const rotationY = (activeAction ? 0 : idle * 1.5) + (1 - intro) * -8;
+  const rotationX = (activeAction ? 0.8 : 2.2) + (1 - intro) * 4;
+  const scale = 0.89 + intro * 0.11 + actionFocus * 0.025;
+  const screenW = deviceType === "phone" ? Math.min(width * 0.31, 520) : Math.min(width * 0.73, 1360);
+  const screenH = deviceType === "phone" ? screenW * 2.02 : screenW / (16 / 10);
+  const stageY = deviceType === "phone" ? 22 : 66;
 
   return (
-    <div style={{ position: "absolute", inset: 0 }}>
-      {/* The video playing in the background at reduced opacity */}
+    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", perspective: 1800 }}>
       <div
         style={{
-          position: "absolute",
-          inset: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          position: "absolute", width: screenW * 1.2, height: screenH * 0.98,
+          borderRadius: "50%", background: `radial-gradient(ellipse, ${withAlpha(accentColor, 0.31)} 0%, transparent 67%)`,
+          filter: "blur(28px)", transform: `translateY(${stageY + 120}px)`, opacity: intro,
+        }}
+      />
+      <div
+        style={{
+          position: "relative", width: screenW, height: screenH,
+          transform: `translateY(${stageY + (1 - intro) * 76}px) scale(${scale}) rotateX(${rotationX}deg) rotateY(${rotationY}deg)`,
+          transformStyle: "preserve-3d", opacity: intro, zIndex: 2,
         }}
       >
-        <ThreeCanvas
-          width={width}
-          height={height}
-          style={{ position: "absolute", inset: 0 }}
+        <div
+          style={{
+            position: "absolute", inset: -15, padding: 15, borderRadius: deviceType === "phone" ? 44 : 28,
+            background: "linear-gradient(145deg, #4b5060 0%, #171a22 21%, #050609 78%, #393f4e 100%)",
+            boxShadow: `0 56px 90px rgba(0,0,0,.66), 0 0 0 1px ${withAlpha("#ffffff", 0.12)}, 0 0 60px ${withAlpha(accentColor, 0.22)}`,
+          }}
         >
-          <DeviceScene
-            videoSrc={videoSrc}
-            deviceType={deviceType}
-            cameraX={cameraX}
-            cameraY={cameraY}
-            cameraZ={cameraZ}
-            accentColor={accentColor}
-          />
-        </ThreeCanvas>
+          <div style={{ position: "absolute", inset: 2, borderRadius: "inherit", border: `1px solid ${withAlpha("#ffffff", 0.2)}`, pointerEvents: "none" }} />
+          {deviceType === "laptop" && <CameraDot />}
+          <div
+            style={{
+              position: "relative", width: "100%", height: "100%", overflow: "hidden",
+              borderRadius: deviceType === "phone" ? 31 : 13, background: "#080a0f",
+              boxShadow: "inset 0 0 0 1px rgba(255,255,255,.09)",
+            }}
+          >
+            <Video src={videoSrc} volume={0} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(118deg, rgba(255,255,255,.16) 0%, transparent 19%, transparent 69%, rgba(255,255,255,.045) 100%)", pointerEvents: "none", mixBlendMode: "screen" }} />
+            {activeAction && <ActionFocus action={activeAction} accentColor={accentColor} progress={actionFocus} />}
+          </div>
+        </div>
+        {deviceType === "laptop" && <LaptopBase width={screenW} accentColor={accentColor} />}
       </div>
-
-      {/* Zoom overlay: crop + enlarge the action region */}
-      {activeAction && isInteracting && (
-        <ZoomOverlay
-          action={activeAction}
-          videoWidth={1920}
-          videoHeight={1080}
-          overlayWidth={width}
-          overlayHeight={height}
-          currentMs={currentMs}
-        />
-      )}
+      <div
+        style={{
+          position: "absolute", bottom: 38, display: "flex", alignItems: "center", gap: 10,
+          padding: "10px 16px", borderRadius: 100, background: "rgba(8,10,15,.68)",
+          border: `1px solid ${withAlpha(accentColor, 0.34)}`, boxShadow: "0 14px 34px rgba(0,0,0,.32)", opacity: Math.min(1, intro * 1.2),
+        }}
+      >
+        <span style={{ width: 7, height: 7, borderRadius: "50%", background: accentColor, boxShadow: `0 0 12px ${accentColor}` }} />
+        <span style={{ color: "#d6d9e4", fontFamily: "Inter, sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase" }}>Product walkthrough</span>
+      </div>
     </div>
   );
 };
 
-// ---------------------------------------------------------------------------
-// Three.js Scene
-// ---------------------------------------------------------------------------
+const CameraDot: React.FC = () => (
+  <div style={{ position: "absolute", top: 6, left: "50%", width: 7, height: 7, marginLeft: -3.5, borderRadius: "50%", background: "#06070a", boxShadow: "0 0 0 1px rgba(255,255,255,.12)" }} />
+);
 
-const DeviceScene: React.FC<{
-  videoSrc: string;
-  deviceType: "laptop" | "phone";
-  cameraX: number;
-  cameraY: number;
-  cameraZ: number;
-  accentColor: string;
-}> = ({ videoSrc, deviceType, cameraX, cameraY, cameraZ, accentColor }) => {
-  const isPhone = deviceType === "phone";
-  const aspect = isPhone ? PHONE_ASPECT : LAPTOP_ASPECT;
-  const screenW = isPhone ? 1.2 : 3.0;
-  const screenH = screenW / aspect;
+const LaptopBase: React.FC<{ width: number; accentColor: string }> = ({ width, accentColor }) => (
+  <div
+    style={{
+      position: "absolute", width: width * 1.1, height: 34, left: "50%", bottom: -46, transform: "translateX(-50%) rotateX(54deg)",
+      transformOrigin: "top", borderRadius: "2px 2px 18px 18px", background: "linear-gradient(180deg, #5b6371, #171a21 58%, #090a0d)",
+      boxShadow: `0 20px 32px rgba(0,0,0,.45), 0 0 24px ${withAlpha(accentColor, 0.12)}`,
+    }}
+  >
+    <div style={{ width: "21%", height: 5, margin: "6px auto", borderRadius: 20, background: "rgba(0,0,0,.42)" }} />
+  </div>
+);
 
+const ActionFocus: React.FC<{ action: DemoAction; accentColor: string; progress: number }> = ({ action, accentColor, progress }) => {
+  const left = `${Math.max(0, Math.min(96, (action.x / 1920) * 100))}%`;
+  const top = `${Math.max(0, Math.min(94, (action.y / 1080) * 100))}%`;
+  const width = `${Math.max(2.8, Math.min(42, (action.width / 1920) * 100))}%`;
+  const height = `${Math.max(3.5, Math.min(38, (action.height / 1080) * 100))}%`;
+  const label = action.narration_cue.split(" ").slice(0, 5).join(" ");
   return (
-    <>
-      {/* Environment lighting */}
-      <ambientLight intensity={0.4} />
-      <directionalLight
-        position={[5, 8, 5]}
-        intensity={1.2}
-        castShadow
-        shadow-mapSize={[2048, 2048]}
-      />
-      <pointLight position={[-4, 2, 4]} intensity={0.6} color={accentColor} />
-
-      {/* Camera */}
-      <perspectiveCamera
-        makeDefault
-        position={[cameraX, cameraY, cameraZ]}
-        fov={40}
-      />
-
-      {/* Device body */}
-      <DeviceBody
-        isPhone={isPhone}
-        screenW={screenW}
-        screenH={screenH}
-        accentColor={accentColor}
-      />
-
-      {/* Subtle ground reflection */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -screenH / 2 - 0.3, 0]} receiveShadow>
-        <planeGeometry args={[12, 12]} />
-        <meshStandardMaterial color="#050508" roughness={0.1} metalness={0.3} />
-      </mesh>
-    </>
-  );
-};
-
-const DeviceBody: React.FC<{
-  isPhone: boolean;
-  screenW: number;
-  screenH: number;
-  accentColor: string;
-}> = ({ isPhone, screenW, screenH, accentColor }) => {
-  const bezel = 0.08;
-  const bodyW = screenW + bezel * 2;
-  const bodyH = screenH + bezel * 2;
-  const bodyD = isPhone ? 0.08 : 0.12;
-  const cornerR = isPhone ? 0.15 : 0.06;
-
-  return (
-    <group>
-      {/* Body */}
-      <mesh castShadow receiveShadow>
-        <boxGeometry args={[bodyW, bodyH, bodyD]} />
-        <meshPhysicalMaterial
-          color="#1a1a2e"
-          roughness={0.3}
-          metalness={0.7}
-          reflectivity={0.8}
-        />
-      </mesh>
-
-      {/* Screen glass */}
-      <mesh position={[0, 0, bodyD / 2 + 0.001]}>
-        <planeGeometry args={[screenW, screenH]} />
-        <meshPhysicalMaterial
-          color="#000"
-          roughness={0.05}
-          metalness={0.1}
-          transmission={0.15}
-          transparent
-          opacity={0.95}
-        />
-      </mesh>
-
-      {/* Accent glow rim */}
-      <mesh position={[0, 0, -bodyD / 2 - 0.001]}>
-        <planeGeometry args={[bodyW + 0.02, bodyH + 0.02]} />
-        <meshBasicMaterial color={accentColor} transparent opacity={0.15} />
-      </mesh>
-
-      {/* Laptop hinge / base */}
-      {!isPhone && (
-        <group position={[0, -bodyH / 2 - 0.05, -0.2]} rotation={[-0.2, 0, 0]}>
-          <mesh castShadow>
-            <boxGeometry args={[bodyW, 0.08, 2.4]} />
-            <meshPhysicalMaterial color="#1a1a2e" roughness={0.3} metalness={0.7} />
-          </mesh>
-        </group>
-      )}
-    </group>
-  );
-};
-
-// ---------------------------------------------------------------------------
-// Zoom overlay
-// ---------------------------------------------------------------------------
-
-const ZoomOverlay: React.FC<{
-  action: ActionEvent;
-  videoWidth: number;
-  videoHeight: number;
-  overlayWidth: number;
-  overlayHeight: number;
-  currentMs: number;
-}> = ({ action, videoWidth, videoHeight, overlayWidth, overlayHeight, currentMs }) => {
-  const pad = 60;
-  const regionX = Math.max(0, action.x - pad);
-  const regionY = Math.max(0, action.y - pad);
-  const regionW = Math.min(action.width + pad * 2, videoWidth - regionX);
-  const regionH = Math.min(action.height + pad * 2, videoHeight - regionY);
-
-  // Scale to fit in a corner
-  const previewW = overlayWidth * 0.35;
-  const previewH = (regionH / regionW) * previewW;
-
-  const progress = remap(currentMs, action.timestamp_ms - 300, action.timestamp_ms + 300, 0, 1);
-  const scale = 0.8 + easeInOutCubic(Math.min(progress, 1)) * 0.2;
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        bottom: 160,
-        right: 40,
-        width: previewW,
-        height: previewH,
-        border: "3px solid rgba(99,102,241,0.7)",
-        borderRadius: 12,
-        overflow: "hidden",
-        transform: `scale(${scale})`,
-        transformOrigin: "bottom right",
-        boxShadow: "0 8px 48px rgba(0,0,0,0.6)",
-      }}
-    >
-      <div
-        style={{
-          width: (videoWidth / regionW) * previewW,
-          height: (videoHeight / regionH) * previewH,
-          transform: `translate(${-(regionX / videoWidth) * (videoWidth / regionW) * previewW}px, ${-(regionY / videoHeight) * (videoHeight / regionH) * previewH}px)`,
-        }}
-      >
-        {/* Label callout */}
-        <div
-          style={{
-            position: "absolute",
-            top: (regionY / videoHeight) * (videoHeight / regionH) * previewH + 4,
-            left: (regionX / videoWidth) * (videoWidth / regionW) * previewW + 4,
-            background: "rgba(99,102,241,0.85)",
-            color: "#fff",
-            fontSize: 13,
-            fontWeight: 700,
-            borderRadius: 6,
-            padding: "2px 8px",
-            fontFamily: "Inter, sans-serif",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {action.narration_cue.split(" ").slice(0, 4).join(" ")}
-        </div>
-      </div>
+    <div style={{ position: "absolute", left, top, width, height, opacity: progress, transform: `scale(${0.94 + progress * 0.06})`, transformOrigin: "center" }}>
+      <div style={{ position: "absolute", inset: -8, borderRadius: 10, border: `2px solid ${accentColor}`, boxShadow: `0 0 0 5px ${withAlpha(accentColor, 0.16)}, 0 0 24px ${withAlpha(accentColor, 0.75)}` }} />
+      <div style={{ position: "absolute", top: -38, left: 0, padding: "6px 10px", borderRadius: 7, background: accentColor, color: "white", font: "700 13px Inter, sans-serif", whiteSpace: "nowrap", boxShadow: `0 8px 18px ${withAlpha(accentColor, 0.35)}` }}>{label}</div>
     </div>
   );
 };

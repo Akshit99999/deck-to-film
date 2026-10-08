@@ -76,8 +76,11 @@ class Pipeline:
         return self._stage_plan(deck, analysis)
 
     def run_demo(self) -> dict[str, Path]:
+        # Demo capture is commonly rerun after hand-editing build/plan.json.
+        # Replanning here would discard those edits and unnecessarily require an
+        # LLM/API key, even though the existing plan already defines the flows.
         deck, analysis = self._stage_ingest()
-        plan = self._stage_plan(deck, analysis)
+        plan = self._load_plan() if (self.build_dir / "plan.json").exists() else self._stage_plan(deck, analysis)
         return self._stage_demo(plan, analysis)
 
     def run_voice(self) -> list[SceneAudio]:

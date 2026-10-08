@@ -10,9 +10,10 @@ import {
   interpolate,
   Easing,
 } from "remotion";
-import { ThreeCanvas } from "@remotion/three";
 import { spring, easeOutCubic, remap } from "../lib/easing";
 import { withAlpha } from "../lib/theme";
+import { resolveAsset } from "../lib/assets";
+import { CinematicBackdrop } from "../components/CinematicBackdrop";
 import type { SceneProps } from "./types";
 
 export const TitleScene: React.FC<SceneProps> = ({
@@ -32,13 +33,14 @@ export const TitleScene: React.FC<SceneProps> = ({
       style={{
         position: "absolute",
         inset: 0,
-        background: `radial-gradient(ellipse at 60% 40%, ${withAlpha(theme.accent, 0.18)} 0%, ${theme.bg} 70%)`,
+        background: theme.bg,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         overflow: "hidden",
       }}
     >
+      <CinematicBackdrop accent={theme.accent} secondary={theme.secondary} intensity={1.15} />
       {/* Animated background grid */}
       <GridBackground accent={theme.accent} frame={frame} fps={fps} />
 
@@ -83,7 +85,7 @@ export const TitleScene: React.FC<SceneProps> = ({
         <h1
           style={{
             fontFamily: theme.fontHeading,
-            fontSize: 96,
+          fontSize: 104,
             fontWeight: 800,
             color: theme.text,
             lineHeight: 1.05,
@@ -120,10 +122,10 @@ export const TitleScene: React.FC<SceneProps> = ({
       <div
         style={{
           position: "absolute",
-          right: "10%",
+          right: "6%",
           top: "15%",
-          width: 480,
-          height: 480,
+          width: 620,
+          height: 620,
           borderRadius: "50%",
           background: `radial-gradient(circle, ${withAlpha(theme.accent, 0.3)} 0%, transparent 70%)`,
           transform: `scale(${orbProgress}) translateY(${Math.sin(frame / fps) * 12}px)`,
@@ -132,7 +134,7 @@ export const TitleScene: React.FC<SceneProps> = ({
       />
 
       {/* Audio */}
-      {scene.audio_path && <Audio src={scene.audio_path} />}
+      {scene.audio_path && <Audio src={resolveAsset(scene.audio_path)} />}
     </div>
   );
 };

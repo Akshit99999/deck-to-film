@@ -59,22 +59,34 @@ def app(ctx: click.Context, config_path: Path, dry_run: bool) -> None:
 
 
 @app.command()
+@click.option("-p", "--prompt", "prompt", type=str, default=None, help="Custom instructions / directions for what sort of video you want.")
+@click.option("--video-type", "video_type", type=str, default=None, help="Video style (e.g. explainer, investor_pitch, hackathon_demo, marketing_trailer).")
 @click.pass_context
-def build(ctx: click.Context) -> None:
+def build(ctx: click.Context, prompt: str | None, video_type: str | None) -> None:
     """Run the full pipeline end-to-end."""
     cfg = ctx.obj["cfg"]
     dry_run = ctx.obj["dry_run"]
+    if prompt and cfg.input:
+        cfg.input.prompt = prompt
+    if video_type and cfg.input:
+        cfg.input.video_type = video_type
     cfg.validate_for_build()
     pipeline = Pipeline(cfg, dry_run=dry_run)
     pipeline.run_all()
 
 
 @app.command()
+@click.option("-p", "--prompt", "prompt", type=str, default=None, help="Custom instructions / directions for what sort of video you want.")
+@click.option("--video-type", "video_type", type=str, default=None, help="Video style (e.g. explainer, investor_pitch, hackathon_demo, marketing_trailer).")
 @click.pass_context
-def plan(ctx: click.Context) -> None:
+def plan(ctx: click.Context, prompt: str | None, video_type: str | None) -> None:
     """Ingest PPTX + repo and generate the scene plan (build/plan.json)."""
     cfg = ctx.obj["cfg"]
     dry_run = ctx.obj["dry_run"]
+    if prompt and cfg.input:
+        cfg.input.prompt = prompt
+    if video_type and cfg.input:
+        cfg.input.video_type = video_type
     cfg.validate_for_build()
     pipeline = Pipeline(cfg, dry_run=dry_run)
     pipeline.run_plan()

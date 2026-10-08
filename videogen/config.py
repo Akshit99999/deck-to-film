@@ -30,6 +30,9 @@ class InputConfig(BaseModel):
     logo: Path | None = None
     brand_colors: list[str] = Field(default_factory=list, description="Hex colors from brand")
     target_length_secs: int = Field(default=480, ge=60, le=1800, description="Target video length (seconds)")
+    prompt: str | None = Field(default=None, description="Custom prompt / creative directions for the video")
+    video_type: str = Field(default="explainer", description="Video style: explainer, investor_pitch, hackathon_demo, marketing_trailer, technical_walkthrough")
+    tone: str = Field(default="engaging", description="Narration tone: professional, exciting, casual, cinematic, authoritative")
     demo_credentials: dict[str, str] = Field(default_factory=dict, description="Login/seed credentials for demo")
     background_music: Path | None = None
 
@@ -126,6 +129,7 @@ class Settings(BaseSettings):
 
     # Secrets — from env only
     anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
+    gemini_api_key: str | None = Field(default=None, alias="GEMINI_API_KEY")
     elevenlabs_api_key: str | None = Field(default=None, alias="ELEVENLABS_API_KEY")
 
     model_config = SettingsConfigDict(
@@ -140,6 +144,8 @@ class Settings(BaseSettings):
         """Override: secrets come directly from standard env var names."""
         if self.anthropic_api_key is None:
             self.anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if self.gemini_api_key is None:
+            self.gemini_api_key = os.environ.get("GEMINI_API_KEY")
         if self.elevenlabs_api_key is None:
             self.elevenlabs_api_key = os.environ.get("ELEVENLABS_API_KEY")
         return self
@@ -161,9 +167,9 @@ class Settings(BaseSettings):
         if self.input is None:
             errors.append("'input' section is required in config. Set input.pptx and input.repo.")
 
-        if not self.anthropic_api_key:
+        if not self.anthropic_api_key and not self.gemini_api_key:
             errors.append(
-                "ANTHROPIC_API_KEY not set. Export it: export ANTHROPIC_API_KEY=sk-ant-..."
+                "Neither ANTHROPIC_API_KEY nor GEMINI_API_KEY is set. Please set at least one."
             )
 
         if self.voice.provider == "elevenlabs" and not self.elevenlabs_api_key:

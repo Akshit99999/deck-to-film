@@ -20,6 +20,17 @@ export interface SceneData {
   audio_path: string;
   duration_secs: number;
   demo_video_path?: string;
+  demo_actions?: DemoAction[];
+}
+
+export interface DemoAction {
+  timestamp_ms: number;
+  action: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  narration_cue: string;
 }
 
 export interface PlanData {
