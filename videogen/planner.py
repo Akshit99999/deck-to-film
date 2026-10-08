@@ -83,6 +83,8 @@ class Scene(BaseModel):
     demo_flow: str | None = None  # name of DemoFlow to play (live_demo scenes only)
     stat_value: str | None = None  # for stat scenes
     stat_label: str | None = None
+    speaker_name: str | None = Field(default=None, description="Speaker name (e.g. Prachi, Akshit, Archit)")
+    voice_id: str | None = Field(default=None, description="Voice ID: Rachel (Female), Josh (Male 1), Adam (Male 2)")
 
     @field_validator("bullets", mode="before")
     @classmethod
@@ -140,6 +142,11 @@ STRICT RULES:
 8. Treat the repository routes as the source of truth for the product tour. Cover the dashboard plus every distinct, user-facing product area that is relevant to the story; do not reduce a multi-page application to one or two generic demos.
 9. Every non-demo scene must have a visual job: use supplied deck assets for claims, architecture for systems, and focused editorial cards only for concise comparisons. Avoid repeating the same four bullets over a long narration.
 10. Live-demo scenes need a real flow that lasts approximately as long as their narration. Include short holds after each page change so viewers can read the actual interface, and combine related routes into an overview tour when that improves coverage.
+11. Multi-Voice Casting: Divide narration across 3 distinct team voices (1 female, 2 male):
+    - Rachel (Female): Team Lead / Vision, Problem Context, and Impact.
+    - Josh (Male 1): AI / Computer Vision / Technical Stack.
+    - Adam (Male 2): GIS Map / Prototype Operations & User Interaction.
+    Alternate between them naturally across scenes so the video feels like an engaging collaborative presentation.
 """
 
 _USER_TEMPLATE = """
@@ -187,7 +194,9 @@ Return a JSON object matching this schema:
       "transition_in": "crossfade|wipe|camera_push|dissolve",
       "demo_flow": "flow name or null",
       "stat_value": "42%" or null,
-      "stat_label": "Conversion Rate" or null
+      "stat_label": "Conversion Rate" or null,
+      "speaker_name": "Prachi | Akshit | Archit",
+      "voice_id": "Rachel | Josh | Adam"
     }}
   ],
   "demo_flows": [

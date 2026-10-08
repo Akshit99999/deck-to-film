@@ -70,7 +70,14 @@ class VoiceGenerator:
 
     def _generate_scene(self, scene: Scene) -> SceneAudio:
         """Generate audio for one scene, with caching."""
-        cache_key = _audio_cache_key(scene.narration, self.voice_cfg.voice_id, self.voice_cfg.model)
+        # Multi-voice: use scene.voice_id if given, or alternate across 3 voices (1 female, 2 male)
+        if scene.voice_id:
+            voice_id = scene.voice_id
+        else:
+            voice_rotation = ["Rachel", "Josh", "Adam"]
+            voice_id = voice_rotation[(scene.index - 1) % len(voice_rotation)]
+
+        cache_key = _audio_cache_key(scene.narration, voice_id, self.voice_cfg.model)
         out_path = self.output_dir / f"scene_{scene.index:03d}_{cache_key}.mp3"
 
         if out_path.exists():
@@ -83,12 +90,12 @@ class VoiceGenerator:
                 text=scene.narration,
             )
 
-        logger.info("Generating voice for scene %d: %.50s...", scene.index, scene.narration)
+        logger.info("Generating voice for scene %d using [%s]: %.50s...", scene.index, voice_id, scene.narration)
 
         if self.voice_cfg.provider == "elevenlabs":
-            raw_path = self._generate_elevenlabs(scene.narration)
+            raw_path = self._generate_elevenlabs(scene.narration, voice_id=voice_id)
         else:
-            raw_path = asyncio.run(self._generate_edge_tts(scene.narration))
+            raw_path = asyncio.run(self._generate_edge_tts(scene.narration, voice_id=voice_id))
 
         # Loudness normalize via ffmpeg (no pydub dependency)
         _normalize_loudness_ffmpeg(raw_path, out_path, target_lufs=-16.0)
@@ -103,15 +110,16 @@ class VoiceGenerator:
         )
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=30))
-    def _generate_elevenlabs(self, text: str) -> Path:
+    def _generate_elevenlabs(self, text: str, voice_id: str | None = None) -> Path:
         """Generate audio via ElevenLabs API. Returns temp MP3 path."""
         from elevenlabs import generate, set_api_key, Voice, VoiceSettings
 
+        target_voice = voice_id or self.voice_cfg.voice_id
         set_api_key(self.cfg.elevenlabs_api_key or "")
         audio_bytes: bytes = generate(  # type: ignore[assignment]
             text=text,
             voice=Voice(
-                voice_id=self.voice_cfg.voice_id,
+                voice_id=target_voice,
                 settings=VoiceSettings(stability=0.5, similarity_boost=0.75),
             ),
             model=self.voice_cfg.model,
@@ -120,9 +128,10 @@ class VoiceGenerator:
         tmp.write_bytes(audio_bytes)
         return tmp
 
-    async def _generate_edge_tts(self, text: str) -> Path:
+    async def _generate_edge_tts(self, text: str, voice_id: str | None = None) -> Path:
         """Generate audio via Edge TTS (free, no API key needed)."""
-        voice_name = _map_edge_tts_voice(self.voice_cfg.voice_id)
+        target_voice = voice_id or self.voice_cfg.voice_id
+        voice_name = _map_edge_tts_voice(target_voice)
         tmp = Path(tempfile.mktemp(suffix=".mp3"))
         communicate = edge_tts.Communicate(text, voice_name)
         await communicate.save(str(tmp))
@@ -174,11 +183,14 @@ def _normalize_loudness_ffmpeg(src: Path, dst: Path, target_lufs: float = -16.0)
 def _map_edge_tts_voice(voice_id: str) -> str:
     """Map a friendly voice name to an Edge TTS voice string."""
     mapping = {
-        "Rachel": "en-US-AriaNeural",
-        "Josh": "en-US-GuyNeural",
-        "Adam": "en-US-DavisNeural",
-        "Sam": "en-US-JasonNeural",
-        "Bella": "en-US-JennyNeural",
-        "Antoni": "en-US-TonyNeural",
+        "Rachel": "en-US-AriaNeural",          # Female (Expressive, clear)
+        "Bella": "en-US-JennyNeural",          # Female
+        "Josh": "en-US-GuyNeural",             # Male 1 (Energetic, crisp)
+        "Sam": "en-US-JasonNeural",            # Male
+        "Adam": "en-US-ChristopherNeural",     # Male 2 (Deep, authoritative)
+        "Antoni": "en-US-TonyNeural",          # Male
+        "en-US-AriaNeural": "en-US-AriaNeural",
+        "en-US-GuyNeural": "en-US-GuyNeural",
+        "en-US-ChristopherNeural": "en-US-ChristopherNeural",
     }
     return mapping.get(voice_id, "en-US-AriaNeural")
