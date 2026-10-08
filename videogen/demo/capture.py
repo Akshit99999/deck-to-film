@@ -193,12 +193,15 @@ class DemoCapture:
                         break
                     except Exception as e:
                         if attempt == 2:
-                            # Screenshot for diagnosis
+                            # Step didn't match selector — preserve video recorded so far
                             fail_png = self.output_dir / f"{flow.name}_failure.png"
-                            await page.screenshot(path=str(fail_png))
-                            capture.screenshot_on_failure = fail_png
-                            logger.error("Flow '%s' failed after 3 attempts: %s", flow.name, e)
-                            raise
+                            try:
+                                await page.screenshot(path=str(fail_png))
+                                capture.screenshot_on_failure = fail_png
+                            except Exception:
+                                pass
+                            logger.warning("Flow '%s' step selector timed out (%s). Preserving captured video.", flow.name, e)
+                            break
                         logger.warning("Flow '%s' attempt %d failed: %s. Retrying...", flow.name, attempt + 1, e)
                         try:
                             await page.goto(start_url, wait_until="networkidle", timeout=15000)
