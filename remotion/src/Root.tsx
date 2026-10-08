@@ -55,7 +55,8 @@ const SceneDispatch: React.FC<{
   })();
 
   const entrance = easeInOutCubic(remap(frame, 0, Math.min(fps * 0.45, durationFrames * 0.12), 0, 1));
-  const exit = easeInOutCubic(remap(frame, Math.max(0, durationFrames - fps * 0.32), durationFrames, 0, 1));
+  const exitProgress = easeInOutCubic(remap(frame, Math.max(0, durationFrames - fps * 0.32), durationFrames, 0, 1));
+  const exit = 1 - exitProgress;
   const isWipe = scene.transition_in === "wipe";
   const isPush = scene.transition_in === "camera_push";
   const isDissolve = scene.transition_in === "dissolve";
