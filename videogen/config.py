@@ -133,6 +133,7 @@ class Settings(BaseSettings):
     elevenlabs_api_key: str | None = Field(default=None, alias="ELEVENLABS_API_KEY")
 
     model_config = SettingsConfigDict(
+        env_file=".env",
         env_prefix="VIDEOGEN_",
         env_nested_delimiter="__",
         populate_by_name=True,
