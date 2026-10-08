@@ -126,41 +126,39 @@ const SlidePanel: React.FC<{
   frame: number;
   accentColor: string;
 }> = ({ src, index, total, t, fps, frame, accentColor }) => {
-  const delay = fps * (index * 0.25);
+  const delay = fps * (index * 0.2);
   const progress = spring(Math.max(0, (frame - delay) / fps), 150, 16);
 
-  // Position: fan out 3 slides
-  const positions = [
-    { x: 60, y: -80, rot: -8, z: 0.9 },
-    { x: 200, y: 60, rot: 3, z: 1.0 },
-    { x: 80, y: 200, rot: 6, z: 0.85 },
-  ];
-  const pos = positions[index % positions.length];
+  // If single slide, center it large and flat for maximum readability
+  const isSingle = total === 1;
+  const cardWidth = isSingle ? 860 : 640;
+  const leftPos = isSingle ? 60 : index === 0 ? 30 : index === 1 ? 140 : 80;
+  const topPos = isSingle ? 240 : index === 0 ? 120 : index === 1 ? 260 : 380;
+  const rotAngle = isSingle ? 0 : index === 0 ? -3 : index === 1 ? 2 : -2;
 
   // Gentle float
-  const floatY = Math.sin(t * 0.8 + index * 1.2) * 12;
-  const floatRot = Math.sin(t * 0.5 + index * 0.8) * 1.5;
+  const floatY = Math.sin(t * 0.8 + index * 1.2) * 8;
 
   return (
     <div
       style={{
         position: "absolute",
-        left: pos.x,
-        top: pos.y + floatY,
-        width: 600,
-        transform: `perspective(1300px) rotateY(${index === 1 ? -4 : index === 0 ? 8 : -7}deg) rotate(${pos.rot + floatRot}deg) scale(${progress * pos.z})`,
+        left: leftPos,
+        top: topPos + floatY,
+        width: cardWidth,
+        transform: `perspective(1400px) rotateY(${isSingle ? -2 : 0}deg) rotate(${rotAngle}deg) scale(${progress})`,
         transformOrigin: "center center",
         opacity: progress,
-        filter: `drop-shadow(0 24px 48px rgba(0,0,0,0.7)) drop-shadow(0 0 20px ${accentColor}33)`,
-        border: `1px solid ${accentColor}66`,
-        borderRadius: 16,
+        boxShadow: `0 35px 80px rgba(0,0,0,0.75), 0 0 50px ${accentColor}33`,
+        border: `1px solid rgba(255,255,255,0.18)`,
+        borderRadius: 20,
         overflow: "hidden",
         background: "#0a0a0f",
       }}
     >
       <Img
         src={resolveAsset(src)}
-        style={{ width: "100%", display: "block" }}
+        style={{ width: "100%", display: "block", objectFit: "contain" }}
       />
     </div>
   );

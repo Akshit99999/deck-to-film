@@ -7,6 +7,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
   Audio,
+  Img,
   interpolate,
   Easing,
 } from "remotion";
@@ -27,6 +28,8 @@ export const TitleScene: React.FC<SceneProps> = ({
   const titleProgress = easeOutCubic(remap(frame, 0, fps * 0.6, 0, 1));
   const subtitleProgress = easeOutCubic(remap(frame, fps * 0.4, fps * 1.0, 0, 1));
   const orbProgress = spring(frame / fps, 120, 14);
+  const hasSlide = scene.assets && scene.assets.length > 0 && scene.assets[0].endsWith(".png");
+  const slideSrc = hasSlide ? resolveAsset(scene.assets[0]) : null;
 
   return (
     <div
@@ -50,8 +53,11 @@ export const TitleScene: React.FC<SceneProps> = ({
           position: "relative",
           zIndex: 10,
           textAlign: "center",
-          maxWidth: 1200,
-          padding: "0 80px",
+          maxWidth: hasSlide ? 1400 : 1200,
+          padding: "0 60px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
         }}
       >
         {/* Accent pill */}
@@ -62,7 +68,7 @@ export const TitleScene: React.FC<SceneProps> = ({
             border: `1px solid ${withAlpha(theme.accent, 0.4)}`,
             borderRadius: 100,
             padding: "8px 24px",
-            marginBottom: 32,
+            marginBottom: hasSlide ? 16 : 32,
             opacity: titleProgress,
             transform: `translateY(${(1 - titleProgress) * 20}px)`,
           }}
@@ -70,14 +76,14 @@ export const TitleScene: React.FC<SceneProps> = ({
           <span
             style={{
               fontFamily: theme.fontBody,
-              fontSize: 22,
+              fontSize: 20,
               color: theme.accent,
               fontWeight: 600,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
             }}
           >
-            Product Demo
+            Product Showcase
           </span>
         </div>
 
@@ -85,11 +91,11 @@ export const TitleScene: React.FC<SceneProps> = ({
         <h1
           style={{
             fontFamily: theme.fontHeading,
-          fontSize: 104,
+            fontSize: hasSlide ? 64 : 104,
             fontWeight: 800,
             color: theme.text,
             lineHeight: 1.05,
-            margin: "0 0 32px",
+            margin: hasSlide ? "0 0 20px" : "0 0 32px",
             opacity: titleProgress,
             transform: `translateY(${(1 - titleProgress) * 40}px)`,
             letterSpacing: "-0.03em",
@@ -98,23 +104,41 @@ export const TitleScene: React.FC<SceneProps> = ({
           {scene.heading}
         </h1>
 
-        {/* Narration excerpt as subtitle */}
-        {scene.bullets[0] && (
-          <p
+        {/* Featured Slide Card */}
+        {hasSlide && slideSrc ? (
+          <div
             style={{
-              fontFamily: theme.fontBody,
-              fontSize: 32,
-              color: theme.textMuted,
-              fontWeight: 400,
-              maxWidth: 800,
-              margin: "0 auto",
-              lineHeight: 1.5,
+              position: "relative",
+              width: "100%",
+              maxWidth: 880,
+              borderRadius: 22,
+              overflow: "hidden",
+              border: `1px solid ${withAlpha("#ffffff", 0.2)}`,
+              boxShadow: `0 35px 90px rgba(0,0,0,0.8), 0 0 50px ${withAlpha(theme.accent, 0.3)}`,
               opacity: subtitleProgress,
-              transform: `translateY(${(1 - subtitleProgress) * 20}px)`,
+              transform: `scale(${0.95 + subtitleProgress * 0.05}) translateY(${Math.sin(frame / fps * 0.7) * 5}px)`,
             }}
           >
-            {scene.bullets[0]}
-          </p>
+            <Img src={slideSrc} style={{ width: "100%", display: "block", objectFit: "contain" }} />
+          </div>
+        ) : (
+          scene.bullets[0] && (
+            <p
+              style={{
+                fontFamily: theme.fontBody,
+                fontSize: 32,
+                color: theme.textMuted,
+                fontWeight: 400,
+                maxWidth: 800,
+                margin: "0 auto",
+                lineHeight: 1.5,
+                opacity: subtitleProgress,
+                transform: `translateY(${(1 - subtitleProgress) * 20}px)`,
+              }}
+            >
+              {scene.bullets[0]}
+            </p>
+          )
         )}
       </div>
 

@@ -5,7 +5,7 @@
  */
 
 import React from "react";
-import { useCurrentFrame, useVideoConfig, Video } from "remotion";
+import { useCurrentFrame, useVideoConfig, Video, OffthreadVideo, Loop } from "remotion";
 import { easeInOutCubic, remap, spring } from "../lib/easing";
 import { withAlpha } from "../lib/theme";
 import type { DemoAction } from "../scenes/types";
@@ -73,11 +73,63 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({
               position: "relative", width: "100%", height: "100%", overflow: "hidden",
               borderRadius: deviceType === "phone" ? 31 : 13, background: "#080a0f",
               boxShadow: "inset 0 0 0 1px rgba(255,255,255,.09)",
+              display: "flex", flexDirection: "column",
             }}
           >
-            <Video src={videoSrc} volume={0} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(118deg, rgba(255,255,255,.16) 0%, transparent 19%, transparent 69%, rgba(255,255,255,.045) 100%)", pointerEvents: "none", mixBlendMode: "screen" }} />
-            {activeAction && <ActionFocus action={activeAction} accentColor={accentColor} progress={actionFocus} />}
+            {/* Top Browser Window Bar */}
+            {deviceType === "laptop" && (
+              <div
+                style={{
+                  height: 38,
+                  background: "#131620",
+                  borderBottom: "1px solid rgba(255,255,255,0.08)",
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "0 14px",
+                  gap: 12,
+                  flexShrink: 0,
+                  zIndex: 10,
+                }}
+              >
+                <div style={{ display: "flex", gap: 7 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#ff5f57" }} />
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#ffbd2e" }} />
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#27c840" }} />
+                </div>
+                <div
+                  style={{
+                    flex: 1,
+                    maxWidth: 520,
+                    margin: "0 auto",
+                    height: 24,
+                    background: "rgba(0,0,0,0.45)",
+                    borderRadius: 6,
+                    border: "1px solid rgba(255,255,255,0.07)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    fontSize: 12,
+                    color: "#94a3b8",
+                    fontFamily: "Inter, sans-serif",
+                  }}
+                >
+                  <span style={{ fontSize: 10, opacity: 0.7 }}>🔒</span>
+                  <span>border-lens.vercel.app</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", boxShadow: "0 0 8px #10b981" }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#10b981", fontFamily: "Inter, sans-serif", letterSpacing: "0.06em" }}>LIVE</span>
+                </div>
+              </div>
+            )}
+            <div style={{ flex: 1, position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
+              <Loop durationInFrames={240}>
+                <OffthreadVideo src={videoSrc} volume={0} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </Loop>
+              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(118deg, rgba(255,255,255,.12) 0%, transparent 19%, transparent 69%, rgba(255,255,255,.04) 100%)", pointerEvents: "none", mixBlendMode: "screen" }} />
+              {activeAction && <ActionFocus action={activeAction} accentColor={accentColor} progress={actionFocus} />}
+            </div>
           </div>
         </div>
         {deviceType === "laptop" && <LaptopBase width={screenW} accentColor={accentColor} />}

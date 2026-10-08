@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { useCurrentFrame, useVideoConfig, Audio } from "remotion";
+import { useCurrentFrame, useVideoConfig, Audio, Img } from "remotion";
 import { spring, remap, easeOutCubic } from "../lib/easing";
 import { withAlpha } from "../lib/theme";
 import { resolveAsset } from "../lib/assets";
@@ -49,6 +49,8 @@ export const ArchitectureScene: React.FC<SceneProps> = ({
   const { fps } = useVideoConfig();
 
   const headingProgress = easeOutCubic(remap(frame, 0, fps * 0.5, 0, 1));
+  const hasSlide = scene.assets && scene.assets.length > 0 && scene.assets[0].endsWith(".png");
+  const slideSrc = hasSlide ? resolveAsset(scene.assets[0]) : null;
 
   // Use bullets as node labels if we have 4-6 of them
   const nodes: Node[] =
@@ -80,7 +82,7 @@ export const ArchitectureScene: React.FC<SceneProps> = ({
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: 40,
+        gap: hasSlide ? 24 : 40,
         overflow: "hidden",
       }}
     >
@@ -88,9 +90,10 @@ export const ArchitectureScene: React.FC<SceneProps> = ({
       <h2
         style={{
           fontFamily: theme.fontHeading,
-          fontSize: 56,
+          fontSize: hasSlide ? 48 : 56,
           fontWeight: 800,
           color: theme.text,
+          zIndex: 1,
           opacity: headingProgress,
           letterSpacing: "-0.02em",
           margin: 0,
@@ -99,8 +102,47 @@ export const ArchitectureScene: React.FC<SceneProps> = ({
         {scene.heading}
       </h2>
 
-      {/* Node graph */}
-      <svg width={canvasW} height={canvasH} style={{ overflow: "visible" }}>
+      {hasSlide && slideSrc ? (
+        <div style={{ zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
+          <div
+            style={{
+              position: "relative",
+              width: "100%",
+              maxWidth: 960,
+              borderRadius: 20,
+              overflow: "hidden",
+              border: "1px solid rgba(255,255,255,0.18)",
+              boxShadow: `0 35px 80px rgba(0,0,0,0.8), 0 0 50px ${withAlpha(theme.accent, 0.28)}`,
+              opacity: headingProgress,
+              transform: `scale(${0.96 + headingProgress * 0.04}) translateY(${Math.sin(frame / fps * 0.8) * 5}px)`,
+            }}
+          >
+            <Img src={slideSrc} style={{ width: "100%", display: "block", objectFit: "contain" }} />
+          </div>
+
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center", opacity: headingProgress }}>
+            {scene.bullets.map((b, i) => (
+              <div
+                key={i}
+                style={{
+                  background: "rgba(255,255,255,0.06)",
+                  backdropFilter: "blur(8px)",
+                  border: `1px solid ${withAlpha(theme.accent, 0.4)}`,
+                  borderRadius: 100,
+                  padding: "8px 20px",
+                  color: "#e2e8f0",
+                  fontFamily: "Inter, sans-serif",
+                  fontSize: 16,
+                  fontWeight: 600,
+                }}
+              >
+                {b}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <svg width={canvasW} height={canvasH} style={{ overflow: "visible" }}>
         {/* Edges */}
         {edges.map((edge, i) => {
           const fromNode = nodes.find((n) => n.id === edge.from);
@@ -185,6 +227,7 @@ export const ArchitectureScene: React.FC<SceneProps> = ({
           );
         })}
       </svg>
+      )}
 
       {scene.audio_path && <Audio src={resolveAsset(scene.audio_path)} />}
     </div>

@@ -1,7 +1,5 @@
-/** A chapter layout that turns factual bullets into paced editorial cards. */
-
 import React from "react";
-import { Audio, useCurrentFrame, useVideoConfig } from "remotion";
+import { Audio, Img, useCurrentFrame, useVideoConfig } from "remotion";
 import { CinematicBackdrop } from "../components/CinematicBackdrop";
 import { easeOutCubic, remap, spring } from "../lib/easing";
 import { resolveAsset } from "../lib/assets";
@@ -13,29 +11,76 @@ export const BulletsScene: React.FC<SceneProps> = ({ scene, theme, durationFrame
   const { fps } = useVideoConfig();
   const heading = easeOutCubic(remap(frame, 0, fps * 0.55, 0, 1));
   const activeIndex = Math.min(scene.bullets.length - 1, Math.max(0, Math.floor((frame / Math.max(1, durationFrames)) * scene.bullets.length)));
+  const hasSlide = scene.assets && scene.assets.length > 0 && scene.assets[0].endsWith(".png");
+  const slideSrc = hasSlide ? resolveAsset(scene.assets[0]) : null;
 
   return (
     <div style={{ position: "absolute", inset: 0, overflow: "hidden", display: "flex", alignItems: "center", background: theme.bg }}>
       <CinematicBackdrop accent={theme.accent} secondary={theme.secondary} />
-      <div style={{ position: "relative", zIndex: 1, width: "100%", padding: "0 118px", display: "grid", gridTemplateColumns: "0.8fr 1.2fr", gap: 76, alignItems: "center" }}>
+      <div style={{ position: "relative", zIndex: 1, width: "100%", padding: "0 100px", display: "grid", gridTemplateColumns: hasSlide ? "0.95fr 1.05fr" : "0.8fr 1.2fr", gap: 60, alignItems: "center" }}>
         <section>
           <div style={{ color: theme.accent, fontFamily: theme.fontBody, fontSize: 18, fontWeight: 800, letterSpacing: ".16em", textTransform: "uppercase", opacity: heading }}>Key capability</div>
-          <h2 style={{ fontFamily: theme.fontHeading, fontSize: 72, fontWeight: 800, color: theme.text, lineHeight: 1.04, letterSpacing: "-.045em", margin: "22px 0 30px", opacity: heading, transform: `translateY(${(1 - heading) * 32}px)` }}>{scene.heading}</h2>
-          <p style={{ maxWidth: 480, margin: 0, color: theme.textMuted, fontFamily: theme.fontBody, fontSize: 24, lineHeight: 1.5, opacity: heading }}>
-            A focused view of the operational details that make this work in practice.
-          </p>
-          <div style={{ display: "flex", gap: 9, marginTop: 42 }}>
-            {scene.bullets.map((_, index) => <div key={index} style={{ width: index === activeIndex ? 38 : 12, height: 4, borderRadius: 8, background: index <= activeIndex ? theme.accent : withAlpha("#ffffff", 0.18), transition: "none" }} />)}
+          <h2 style={{ fontFamily: theme.fontHeading, fontSize: hasSlide ? 56 : 72, fontWeight: 800, color: theme.text, lineHeight: 1.06, letterSpacing: "-.045em", margin: "16px 0 24px", opacity: heading, transform: `translateY(${(1 - heading) * 32}px)` }}>{scene.heading}</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 10 }}>
+            {scene.bullets.map((bullet, index) => {
+              const delay = fps * (0.2 + index * 0.14);
+              const progress = spring(Math.max(0, (frame - delay) / fps), 170, 18);
+              const isActive = index === activeIndex;
+              return (
+                <div
+                  key={bullet}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 16,
+                    padding: "14px 20px",
+                    borderRadius: 14,
+                    opacity: progress,
+                    transform: `translateX(${(1 - progress) * 40}px)`,
+                    background: isActive ? `linear-gradient(110deg, ${withAlpha(theme.accent, 0.22)}, rgba(255,255,255,0.04))` : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${isActive ? withAlpha(theme.accent, 0.6) : "rgba(255,255,255,0.08)"}`,
+                  }}
+                >
+                  <div style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 10, display: "grid", placeItems: "center", color: "#fff", font: "800 14px Inter, sans-serif", background: isActive ? `linear-gradient(135deg, ${theme.accent}, ${theme.secondary})` : "rgba(255,255,255,0.08)" }}>{String(index + 1).padStart(2, "0")}</div>
+                  <p style={{ margin: 0, color: isActive ? theme.text : "#cbd5e1", fontFamily: theme.fontBody, fontWeight: isActive ? 600 : 450, fontSize: 24, lineHeight: 1.3 }}>{bullet}</p>
+                </div>
+              );
+            })}
           </div>
         </section>
-        <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {scene.bullets.map((bullet, index) => {
-            const delay = fps * (0.22 + index * 0.16);
-            const progress = spring(Math.max(0, (frame - delay) / fps), 170, 18);
-            const isActive = index === activeIndex;
-            return <BulletCard key={bullet} text={bullet} number={index + 1} progress={progress} active={isActive} theme={theme} />;
-          })}
-        </section>
+
+        {/* Right side: Either slide card or large bullet cards */}
+        {hasSlide && slideSrc ? (
+          <section style={{ display: "flex", flexDirection: "column", alignItems: "center", opacity: heading, transform: `scale(${0.96 + heading * 0.04})` }}>
+            <div
+              style={{
+                position: "relative",
+                width: "100%",
+                maxWidth: 820,
+                borderRadius: 20,
+                overflow: "hidden",
+                border: `1px solid ${withAlpha("#ffffff", 0.16)}`,
+                boxShadow: `0 35px 80px rgba(0,0,0,0.7), 0 0 40px ${withAlpha(theme.accent, 0.25)}`,
+                transform: `translateY(${Math.sin(frame / fps * 0.8) * 6}px)`,
+              }}
+            >
+              <Img src={slideSrc} style={{ width: "100%", display: "block", objectFit: "contain" }} />
+              <div style={{ position: "absolute", top: 12, right: 14, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 100, padding: "4px 12px", display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: theme.accent }} />
+                <span style={{ color: "#e2e8f0", fontSize: 11, fontWeight: 700, fontFamily: "Inter, sans-serif", letterSpacing: "0.06em" }}>PRESENTATION DECK</span>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {scene.bullets.map((bullet, index) => {
+              const delay = fps * (0.22 + index * 0.16);
+              const progress = spring(Math.max(0, (frame - delay) / fps), 170, 18);
+              const isActive = index === activeIndex;
+              return <BulletCard key={bullet} text={bullet} number={index + 1} progress={progress} active={isActive} theme={theme} />;
+            })}
+          </section>
+        )}
       </div>
       {scene.audio_path && <Audio src={resolveAsset(scene.audio_path)} />}
     </div>

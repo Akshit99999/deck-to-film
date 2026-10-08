@@ -1,9 +1,5 @@
-/**
- * StatScene — animates a big number/stat with a ring motif.
- */
-
 import React from "react";
-import { useCurrentFrame, useVideoConfig, Audio } from "remotion";
+import { useCurrentFrame, useVideoConfig, Audio, Img } from "remotion";
 import { spring, remap, easeOutCubic } from "../lib/easing";
 import { withAlpha } from "../lib/theme";
 import { resolveAsset } from "../lib/assets";
@@ -20,6 +16,8 @@ export const StatScene: React.FC<SceneProps> = ({
 
   const t = spring(frame / fps, 200, 16);
   const headingProgress = easeOutCubic(remap(frame, fps * 0.3, fps * 0.8, 0, 1));
+  const hasSlide = scene.assets && scene.assets.length > 0 && scene.assets[0].endsWith(".png");
+  const slideSrc = hasSlide ? resolveAsset(scene.assets[0]) : null;
 
   // Animate numeric value if stat_value is a number
   const rawValue = scene.stat_value || "100%";
@@ -33,9 +31,10 @@ export const StatScene: React.FC<SceneProps> = ({
   }
 
   // Ring progress
-  const ringRadius = 200;
+  const ringRadius = hasSlide ? 160 : 200;
   const ringCircumference = 2 * Math.PI * ringRadius;
   const ringProgress = Math.min(t, 1);
+  const ringSize = ringRadius * 2 + 80;
 
   return (
     <div
@@ -46,132 +45,131 @@ export const StatScene: React.FC<SceneProps> = ({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        flexDirection: "column",
-        gap: 48,
         overflow: "hidden",
       }}
     >
       <CinematicBackdrop accent={theme.accent} secondary={theme.secondary} />
-      {/* Ring + stat */}
-      <div style={{ position: "relative", width: 480, height: 480 }}>
-        <svg
-          width={480}
-          height={480}
-          style={{ position: "absolute", inset: 0 }}
-        >
-          {/* Track */}
-          <circle
-            cx={240}
-            cy={240}
-            r={ringRadius}
-            fill="none"
-            stroke={withAlpha(theme.accent, 0.15)}
-            strokeWidth={16}
-          />
-          {/* Progress */}
-          <circle
-            cx={240}
-            cy={240}
-            r={ringRadius}
-            fill="none"
-            stroke={theme.accent}
-            strokeWidth={16}
-            strokeLinecap="round"
-            strokeDasharray={ringCircumference}
-            strokeDashoffset={ringCircumference * (1 - ringProgress)}
-            transform="rotate(-90 240 240)"
-            style={{ filter: `drop-shadow(0 0 12px ${theme.accent})` }}
-          />
-          {/* Glow dots */}
-          {[0, 60, 120, 180, 240, 300].map((deg, i) => (
-            <circle
-              key={i}
-              cx={240 + ringRadius * Math.cos((deg * Math.PI) / 180)}
-              cy={240 + ringRadius * Math.sin((deg * Math.PI) / 180)}
-              r={3}
-              fill={withAlpha(theme.accent, 0.4)}
-            />
-          ))}
-        </svg>
-
-        {/* Center content */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            style={{
-              fontFamily: theme.fontHeading,
-              fontSize: 96,
-              fontWeight: 900,
-              color: theme.text,
-              lineHeight: 1,
-              letterSpacing: "-0.04em",
-            }}
-          >
-            {displayValue}
-          </div>
-          {scene.stat_label && (
-            <div
-              style={{
-                fontFamily: theme.fontBody,
-                fontSize: 24,
-                color: theme.textMuted,
-                fontWeight: 500,
-                marginTop: 8,
-                letterSpacing: "0.04em",
-                textTransform: "uppercase",
-              }}
-            >
-              {scene.stat_label}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Heading below */}
-      <h2
+      
+      <div
         style={{
-          fontFamily: theme.fontHeading,
-          fontSize: 52,
-          fontWeight: 700,
-          color: theme.text,
-          textAlign: "center",
-          maxWidth: 900,
-          opacity: headingProgress,
-          transform: `translateY(${(1 - headingProgress) * 20}px)`,
-          letterSpacing: "-0.02em",
-          margin: 0,
+          position: "relative",
+          zIndex: 1,
+          width: "100%",
+          padding: "0 100px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: hasSlide ? 80 : 48,
         }}
       >
-        {scene.heading}
-      </h2>
+        {/* Left / Center: Stat & Ring */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 32 }}>
+          <div style={{ position: "relative", width: ringSize, height: ringSize }}>
+            <svg
+              width={ringSize}
+              height={ringSize}
+              style={{ position: "absolute", inset: 0 }}
+            >
+              {/* Track */}
+              <circle
+                cx={ringSize / 2}
+                cy={ringSize / 2}
+                r={ringRadius}
+                fill="none"
+                stroke={withAlpha(theme.accent, 0.15)}
+                strokeWidth={14}
+              />
+              {/* Progress */}
+              <circle
+                cx={ringSize / 2}
+                cy={ringSize / 2}
+                r={ringRadius}
+                fill="none"
+                stroke={theme.accent}
+                strokeWidth={14}
+                strokeLinecap="round"
+                strokeDasharray={ringCircumference}
+                strokeDashoffset={ringCircumference * (1 - ringProgress)}
+                transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
+                style={{ filter: `drop-shadow(0 0 12px ${theme.accent})` }}
+              />
+            </svg>
 
-      {/* Bullets */}
-      {scene.bullets.length > 0 && (
-        <div style={{ textAlign: "center" }}>
-          {scene.bullets.map((b, i) => (
-            <p
-              key={i}
+            {/* Center content */}
+            <div
               style={{
-                fontFamily: theme.fontBody,
-                fontSize: 32,
-                color: theme.textMuted,
-                margin: "4px 0",
-                opacity: headingProgress,
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
-              {b}
-            </p>
-          ))}
+              <div
+                style={{
+                  fontFamily: theme.fontHeading,
+                  fontSize: hasSlide ? 84 : 112,
+                  fontWeight: 900,
+                  color: theme.text,
+                  lineHeight: 1,
+                  letterSpacing: "-0.04em",
+                }}
+              >
+                {displayValue}
+              </div>
+              <div
+                style={{
+                  fontFamily: theme.fontBody,
+                  fontSize: hasSlide ? 20 : 24,
+                  fontWeight: 600,
+                  color: theme.accent,
+                  marginTop: 10,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                }}
+              >
+                {scene.stat_label || "Hardware Reuse"}
+              </div>
+            </div>
+          </div>
+
+          <h2
+            style={{
+              fontFamily: theme.fontHeading,
+              fontSize: hasSlide ? 42 : 56,
+              fontWeight: 800,
+              color: theme.text,
+              textAlign: "center",
+              maxWidth: hasSlide ? 500 : 800,
+              margin: 0,
+              opacity: headingProgress,
+              transform: `translateY(${(1 - headingProgress) * 20}px)`,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            {scene.heading}
+          </h2>
         </div>
-      )}
+
+        {/* Right side: Slide presentation card */}
+        {hasSlide && slideSrc && (
+          <div
+            style={{
+              flex: 1,
+              maxWidth: 820,
+              borderRadius: 20,
+              overflow: "hidden",
+              border: "1px solid rgba(255,255,255,0.18)",
+              boxShadow: `0 35px 80px rgba(0,0,0,0.75), 0 0 50px ${withAlpha(theme.accent, 0.25)}`,
+              opacity: headingProgress,
+              transform: `scale(${0.96 + headingProgress * 0.04}) translateY(${Math.sin(frame / fps * 0.8) * 6}px)`,
+            }}
+          >
+            <Img src={slideSrc} style={{ width: "100%", display: "block", objectFit: "contain" }} />
+          </div>
+        )}
+      </div>
 
       {scene.audio_path && <Audio src={resolveAsset(scene.audio_path)} />}
     </div>

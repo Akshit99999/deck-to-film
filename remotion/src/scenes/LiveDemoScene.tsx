@@ -140,7 +140,8 @@ const FallbackSlides: React.FC<{
 }> = ({ scene, theme, frame, fps }) => {
   const t = easeOutCubic(remap(frame, 0, fps * 0.8, 0, 1));
 
-  const src = resolveAsset(scene.assets[0]);
+  const fallbackAsset = (scene.assets && scene.assets.length > 0) ? scene.assets[0] : "slide_002.png";
+  const src = resolveAsset(fallbackAsset);
   const modules = [
     ["Dashboard", "Overview & telemetry"],
     ["Live Cameras", "Multi-feed monitoring"],
