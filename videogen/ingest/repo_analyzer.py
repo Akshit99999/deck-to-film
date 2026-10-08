@@ -133,22 +133,14 @@ def analyze_repo(repo_path: Path, repo_url: str) -> RepoAnalysis:
     )
 
     app_path = repo_path
-    if (
-        not (repo_path / "package.json").exists()
-        and not (repo_path / "pyproject.toml").exists()
-        and not (repo_path / "requirements.txt").exists()
-        and not (repo_path / "Cargo.toml").exists()
-    ):
-        for sub in ["frontend", "client", "web", "app", "ui", "src"]:
+    # If root has no package.json, check for frontend subfolders first
+    if not (repo_path / "package.json").exists():
+        for sub in ["frontend", "client", "web", "app", "ui"]:
             cand = repo_path / sub
-            if (
-                (cand / "package.json").exists()
-                or (cand / "requirements.txt").exists()
-                or (cand / "pyproject.toml").exists()
-            ):
+            if (cand / "package.json").exists():
                 app_path = cand
                 analysis.local_path = app_path
-                logger.info("Detected web app subfolder: %s", app_path)
+                logger.info("Detected frontend subfolder: %s", app_path)
                 break
 
     # Detect package manager
