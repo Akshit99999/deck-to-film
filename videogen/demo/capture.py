@@ -374,13 +374,27 @@ async def _clean_browser(
         try {
             const sess = JSON.stringify({
                 operatorId: 'ADMIN-001',
-                name: 'BorderLens System Administrator',
+                name: 'Sentrix System Administrator',
                 rank: 'Administrator',
                 role: 'Full system access',
-                tier: 'admin'
+                tier: 'admin',
+                token: 'demo-token-active'
             });
+            window.sessionStorage.setItem('sentrix.auth.session', sess);
+            window.localStorage.setItem('sentrix.auth.session', sess);
             window.sessionStorage.setItem('borderlens.auth.session', sess);
             window.localStorage.setItem('borderlens.auth.session', sess);
+            window.sessionStorage.setItem('auth.session', sess);
+            window.localStorage.setItem('auth.session', sess);
+            window.sessionStorage.setItem('auth', sess);
+            window.localStorage.setItem('auth', sess);
+            window.sessionStorage.setItem('token', 'demo-token-active');
+            window.localStorage.setItem('token', 'demo-token-active');
+            window.sessionStorage.setItem('user', sess);
+            window.localStorage.setItem('user', sess);
+            if (window.location.pathname === '/login') {
+                window.location.replace('/dashboard');
+            }
         } catch(e) {}
         """
     )
